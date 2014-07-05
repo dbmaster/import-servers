@@ -51,12 +51,10 @@ import com.branegy.dbmaster.sync.impl.BeanComparer;
 import com.branegy.dbmaster.sync.api.SyncPair.ChangeType;
 import com.branegy.dbmaster.sync.api.SyncAttributePair.AttributeChangeType;
 
-
 import com.branegy.service.connection.api.ConnectionService;
 import com.branegy.service.connection.model.DatabaseConnection;
 import com.branegy.service.core.QueryRequest
 import com.branegy.dbmaster.sync.api.SyncSession.SearchTarget
-import io.dbmaster.sync.PreviewGenerator
 
 
 //CHECKSTYLE:OFF
@@ -550,14 +548,13 @@ if (synchronizer.loadAndValidateExcel(parameters)) {
         }
         println "<hr size=\"1\" />"
     } else {
-        def sessionHtml = new PreviewGenerator().generatePreview(synchronizer)
+        def syncService = dbm.getService(SyncService.class)
+        def sessionHtml = syncService.generateSyncSessionPreviewHtml(synchronizer, false)
         if (p_action.equals("Import")) {
             logger.info("Importing changes")
             synchronizer.applyChanges();
             synchronizer.setParameter("html",  sessionHtml.toString())
             synchronizer.setParameter("title", "Server import from excel file")
-
-            def syncService = dbm.getService(SyncService.class)
             syncService.saveSession(synchronizer, "Server Import")
             logger.info("Import completed successfully")
         }
