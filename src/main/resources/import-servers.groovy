@@ -158,16 +158,15 @@ public class ExcelSynchronizer extends SyncSession {
     public boolean loadAndValidateExcel(Map parameters) throws Exception {
         //MissingObject missingObjectAction = MissingObject.valueOf(parameters.p_objects.toUpperCase())
         //MissingObject contactConfig =  MissingObject.valueOf(parameters.p_contacts.toUpperCase())
-        String pathToExcel= parameters.p_excel_path.trim()
 
-        FileInputStream fis = null;
+        InputStream fis = null
         try {
-            logInfo("Loading excel from "+pathToExcel);
+            logInfo("Loading data from file "+parameters.p_excel_file.getName())
 
-            fis = new FileInputStream(new File(pathToExcel));
-            Workbook wb = WorkbookFactory.create(fis);
+            fis = parameters.p_excel_file.getInputStream()
+            Workbook wb = WorkbookFactory.create(fis)
 
-            sheet = wb.getSheetAt(0);
+            sheet = wb.getSheetAt(0)
 
             Row header = sheet.getRow(0);
             Set<String> headerSet = new LinkedHashSet<String>();
