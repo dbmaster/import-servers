@@ -1,9 +1,9 @@
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map.Entry;
+import java.util.ArrayList
+import java.util.Iterator
+import java.util.List
+import java.util.Map.Entry
 
-import ExcelSynchronizer.MissingObject;
+import ExcelSynchronizer.MissingObject
 
 import static com.branegy.persistence.custom.BaseCustomEntity.getDiscriminator;
 
@@ -74,7 +74,6 @@ public class ExcelSynchronizer extends SyncSession {
     DbMaster dbm
     InventoryService inventoryService
     Sheet sheet;
-    String source
 
     def missingMetaValues = [:]
 
@@ -96,14 +95,13 @@ public class ExcelSynchronizer extends SyncSession {
     Class targetClass;
     String keyColumnName;
 
-    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String source) {
-        super(new InventoryComparer(source))
+    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String serverFilter) {
+        super(new InventoryComparer(serverFilter))
         setNamer(new InventoryNamer())
         this.dbm = dbm
         this.logger = logger
         this.targetClass = targetClass
         this.keyColumnName = keyColumnName
-        this.source = source
         inventoryService = dbm.getService(InventoryService.class)
     }
 
@@ -117,9 +115,6 @@ public class ExcelSynchronizer extends SyncSession {
 
             switch (pair.getChangeType()) {
                 case ChangeType.NEW:
-                    if (source!=null) {
-                        targetSrv.setCustomData("Source", source)
-                    }
                     inventoryService.createServer(targetSrv)
                     break;
                 case ChangeType.CHANGED:
@@ -127,9 +122,6 @@ public class ExcelSynchronizer extends SyncSession {
                         if (attr.getChangeType() != AttributeChangeType.EQUALS) {
                             sourceSrv.setCustomData( attr.getAttributeName(), attr.getTargetValue())
                         }
-                    }
-                    if (source!=null) {
-                        sourceSrv.setCustomData("Source", source)
                     }
                     inventoryService.saveServer(sourceSrv)
                     break;
@@ -475,10 +467,10 @@ class InventoryNamer implements Namer {
 class InventoryComparer extends BeanComparer {
     def connections
     def inventoryDBs
-    String source
+    String serverFilter
     
-    InventoryComparer(String source) {
-        this.source = source
+    InventoryComparer(String serverFilter) {
+        this.serverFilter = serverFilter
     }
 
     @Override
@@ -486,7 +478,7 @@ class InventoryComparer extends BeanComparer {
         String objectType = pair.getObjectType();
         Namer namer = session.getNamer();
         if (objectType.equals("Inventory")) {
-           def request = source == null ? new QueryRequest() : new QueryRequest("Source="+source)
+            def request = serverFilter == null ? new QueryRequest() : new QueryRequest(serverFilter)
             def inventoryServers = session.inventoryService.getServerList(request) 
             def importedServers = session.getExcelObjects()
 
@@ -499,8 +491,6 @@ class InventoryComparer extends BeanComparer {
         } else if (objectType.equals("Server")) {
             Server sourceSrv = (Server)pair.getSource();
             Server targetSrv = (Server)pair.getTarget();
-
-            session.logInfo("Comparing ${objectType} ${pair.getChangeType()} ${sourceSrv} and ${targetSrv}")
 
             try {
                 Map sourceAttrs = sourceSrv == null ? null : new HashMap()
@@ -531,7 +521,7 @@ class InventoryComparer extends BeanComparer {
     }
 }
 
-synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_source)
+synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_server_filter)
 if (synchronizer.loadAndValidateExcel(parameters)) {
     logger.info("Parsing excel")
     rootObject = new RootObject("Repository", "Excel")

@@ -10,7 +10,7 @@
     <name>Server Import</name>
     <description>Imports servers into inventory</description>
 
-    <version>0.9.8</version>
+    <version>0.9.9</version>
     <packaging>bundle</packaging>
 
     <dependencies>

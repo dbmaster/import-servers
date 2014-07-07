@@ -3,8 +3,8 @@
         <description>Import Servers into inventory</description>
 
         <parameters>
-            <parameter name="p_excel_file" title="File to Import (Excel)" type="file_ref" required="true" width="500" />
-            <parameter name="p_source"     title="Data Source" type="string" required="false" />
+            <parameter name="p_excel_file"     title="File to Import (Excel)" type="file_ref" required="true" width="500" />
+            <parameter name="p_server_filter"  title="Inventory Server Filter" type="string" required="false" />
 
             <!--parameter name="p_objects" title="Missing objects" type="STRING" required="true">
                 <values>
