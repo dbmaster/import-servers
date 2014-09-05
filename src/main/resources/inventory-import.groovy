@@ -346,7 +346,7 @@ public class ExcelSynchronizer extends SyncSession {
             } else if ("No".equalsIgnoreCase(value)){
                 v = Boolean.FALSE;
             } else {
-                logError("'${value}' is not boolean for field ${config.name} at ${row}:${column}");
+                logError("'${value}' is not boolean for field '${config.name}' at ${row}:${column}");
                 return;
             }
         } else if (config.getType() == Type.STRING || config.getType() == Type.TEXT) {
@@ -354,9 +354,9 @@ public class ExcelSynchronizer extends SyncSession {
         } else if (config.getType() == Type.FLOAT) {
             if (value != null) {
                 try {
-                    v = new Float(value)
+                    v = Double.valueOf(value)
                 } catch (NumberFormatException e) {
-                    logError("'${value}' is not a float for field ${config.name} at ${row}:${column}")
+                    logError("'${value}' is not a float for field '${config.name}' at ${row}:${column}")
                 }
             } else {
                 v = null
@@ -367,13 +367,13 @@ public class ExcelSynchronizer extends SyncSession {
             } else {
                   if (dateParsers.find {
                         try {
-                            v = new java.sql.Timestamp(it.parse(value).getTime());
+                            v = new java.util.Date(it.parse(value).getTime());
                             return true
                         } catch (java.text.ParseException e) {
                             return false
                         }
                     } == null) {
-                        logError("'"+value+"' is not date for field "+"."+config.name+" at "+row+":"+column);
+                        logError("'"+value+"' is not date for field '"+config.name+"' at "+row+":"+column);
                   }
 
             }
@@ -502,9 +502,9 @@ class InventoryComparer extends BeanComparer {
         if (objectType.equals("Inventory")) {
             def request = objectFilter == null ? new QueryRequest() : new QueryRequest(objectFilter)
             def inventoryObjects;
-            if (objectType.equals("Server")) {
+            if (session.targetClass == Server.class) {
                 inventoryObjects= session.inventoryService.getServerList(request)
-            } else if (objectType.equals("Application")) {
+            } else if (session.targetClass == Application.class) {
                 inventoryObjects= session.inventoryService.getApplicationList(request)
             }
             def importedObjects = session.getExcelObjects()

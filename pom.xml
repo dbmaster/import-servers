@@ -10,7 +10,7 @@
     <name>Inventory Import</name>
     <description>Imports data (applications,servers) from excel into inventory</description>
 
-    <version>0.0.4</version>
+    <version>0.0.5</version>
     <packaging>bundle</packaging>
 
     <dependencies>
