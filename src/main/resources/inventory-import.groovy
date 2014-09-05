@@ -367,7 +367,7 @@ public class ExcelSynchronizer extends SyncSession {
             } else {
                   if (dateParsers.find {
                         try {
-                            v = new java.util.Date(it.parse(value).getTime());
+                            v = new java.sql.Timestamp(it.parse(value).getTime());
                             return true
                         } catch (java.text.ParseException e) {
                             return false
