@@ -307,7 +307,7 @@ public class ExcelSynchronizer extends SyncSession {
                 logWarn("Duplicate entity found at row ${row.getRowNum()}");
                 objectToImport = processedObjects.get(objectName);
             }
-            objectToImport = new Server();
+            objectToImport = targetClass.newInstance();
             objectToImport.setCustomData(keyColumnName, objectName);
             logInfo("Processing row ${row.getRowNum()}: ${objectName}");
 
