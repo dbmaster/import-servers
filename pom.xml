@@ -5,12 +5,12 @@
 
     <groupId>io.dbmaster.tools</groupId>
 
-    <artifactId>import-servers</artifactId>
+    <artifactId>inventory-import</artifactId>
 
-    <name>Server Import</name>
-    <description>Imports servers into inventory</description>
+    <name>Inventory Import</name>
+    <description>Imports data (applications,servers) from excel into inventory</description>
 
-    <version>0.9.9</version>
+    <version>0.0.3</version>
     <packaging>bundle</packaging>
 
     <dependencies>

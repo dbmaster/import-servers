@@ -80,7 +80,9 @@ public class ExcelSynchronizer extends SyncSession {
     List dateParsers = [ new SimpleDateFormat("MMM d, yyyy"),
                          new SimpleDateFormat("EEE MMM d, yyyy h:mm a"),
                          new SimpleDateFormat("MMM d,yyyy h:mm a"),
+                         new SimpleDateFormat("EEE MMM d h:mm:ss z yyyy"),
                          new SimpleDateFormat("MMM d,yyyy h:mm:ss")]
+                            
 
     private void logError(String error){
         this.error = true;
@@ -95,8 +97,8 @@ public class ExcelSynchronizer extends SyncSession {
     Class targetClass;
     String keyColumnName;
 
-    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String serverFilter) {
-        super(new InventoryComparer(serverFilter))
+    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType, String objectFilter) {
+        super(new InventoryComparer(objectType, objectFilter))
         setNamer(new InventoryNamer())
         this.dbm = dbm
         this.logger = logger
@@ -109,24 +111,36 @@ public class ExcelSynchronizer extends SyncSession {
         String objectType = pair.getObjectType();
         if (objectType.equals("Inventory")) {
             pair.getChildren().each { importChanges(it) }
-        } else if (objectType.equals("Server")) {
-            Server sourceSrv = (Server)pair.getSource()
-            Server targetSrv = (Server)pair.getTarget()
+        } else if (objectType.equals("Server") || objectType.equals("Application")) {
+            BaseCustomEntity sourceObj = (BaseCustomEntity)pair.getSource()
+            BaseCustomEntity targetObj = (BaseCustomEntity)pair.getTarget()
 
             switch (pair.getChangeType()) {
                 case ChangeType.NEW:
-                    inventoryService.createServer(targetSrv)
+                    if (objectType.equals("Server")) {
+                        inventoryService.createServer(targetObj)
+                    } else if (objectType.equals("Application")) {
+                        inventoryService.createApplication(targetObj)
+                    }
                     break;
                 case ChangeType.CHANGED:
                     for (SyncAttributePair attr : pair.getAttributes()) {
                         if (attr.getChangeType() != AttributeChangeType.EQUALS) {
-                            sourceSrv.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
                         }
                     }
-                    inventoryService.saveServer(sourceSrv)
+                    if (objectType.equals("Server")) {
+                        inventoryService.saveServer(sourceObj)
+                    } else if (objectType.equals("Application")) {
+                        inventoryService.updateApplication(sourceObj)
+                    }
                     break;
                 case ChangeType.DELETED:
-                    inventoryService.deleteServer(sourceSrv.getId())
+                    if (objectType.equals("Server")) {
+                        inventoryService.deleteServer(sourceObj.getId())
+                    } else if (objectType.equals("Application")) {
+                        inventoryService.deleteApplication(sourceObj.getId())
+                    }
                     break;
                 case ChangeType.COPIED:
                 case ChangeType.EQUALS:
@@ -135,7 +149,7 @@ public class ExcelSynchronizer extends SyncSession {
                     throw new RuntimeException("Unexpected change type ${pair.getChangeType()}")
             }
         } else {
-            throw new SyncException("Unexpected object type "+ objectType);
+            throw new SyncException("Unexpected object type ${objectType}");
         }
     }
 
@@ -257,8 +271,7 @@ public class ExcelSynchronizer extends SyncSession {
             if (ci.contactRole!=null){
                 ci.contactNameIndex = role2ContactNameIndex.get(ci.contactRole);
                 if (ci.contactNameIndex == -1){
-                    logError(getDiscriminator(Contact.class)+"."+Contact.NAME+" not set for role "
-                                +ci.contactRole);
+                    logError(getDiscriminator(Contact.class)+"."+Contact.NAME+" not set for role "+ci.contactRole);
                 }
             }
         }
@@ -314,7 +327,7 @@ public class ExcelSynchronizer extends SyncSession {
         return processedObjects.collect{ key, value -> value }
     }
 
-    protected ContactLink findByRole(String role,List<ContactLink> contactLinks) {
+    protected ContactLink findByRole(String role, List<ContactLink> contactLinks) {
         for (ContactLink link:contactLinks) {
             if (role.equals(link.getCustomData(ContactLink.ROLE))) {
                 return link;
@@ -323,7 +336,7 @@ public class ExcelSynchronizer extends SyncSession {
         return null;
     }
 
-    protected void setupCustomField(CustomFieldConfig config, BaseCustomEntity entity, String value, int row,int column){
+    protected void setupCustomField(CustomFieldConfig config, BaseCustomEntity entity, String value, int row, int column) {
         Object v;
         if (config.getType() == Type.BOOLEAN) {
             if (value == null || value.isEmpty()) {
@@ -333,13 +346,21 @@ public class ExcelSynchronizer extends SyncSession {
             } else if ("No".equalsIgnoreCase(value)){
                 v = Boolean.FALSE;
             } else {
-                logError("'"+value+"' is not boolean for field "+
-                        config.getDescription()+"."+config.getName()+
-                        " at "+row+":"+column);
+                logError("'${value}' is not boolean for field ${config.name} at ${row}:${column}");
                 return;
             }
         } else if (config.getType() == Type.STRING || config.getType() == Type.TEXT) {
             v = value;
+        } else if (config.getType() == Type.FLOAT) {
+            if (value != null) {
+                try {
+                    v = new Float(value)
+                } catch (NumberFormatException e) {
+                    logError("'${value}' is not a float for field ${config.name} at ${row}:${column}")
+                }
+            } else {
+                v = null
+            }
         } else if (config.getType() == Type.DATE) {
             if (value == null || value.isEmpty()) {
                 v = null;
@@ -352,9 +373,7 @@ public class ExcelSynchronizer extends SyncSession {
                             return false
                         }
                     } == null) {
-                        logError("'"+value+"' is not date for field "+
-                            config.getDescription()+"."+config.getName()+
-                            " at "+row+":"+column);
+                        logError("'"+value+"' is not date for field "+"."+config.name+" at "+row+":"+column);
                   }
 
             }
@@ -370,14 +389,14 @@ public class ExcelSynchronizer extends SyncSession {
         List<String> textValues = config.getTextValues();
         if (v!=null && !textValues.isEmpty() && !textValues.contains(v)){
             logError("Value '${value}' not in ${textValues} for field ${config.getClazz()}.${config.getName()} at ${row}:${column}");
-        def key = config.getClazz()+"."+config.getName()
-        def newValuesPerField = missingMetaValues[key]
-        if (newValuesPerField == null) {
-        newValuesPerField = [value] as Set
-        missingMetaValues[key] = newValuesPerField
-        } else {
-        newValuesPerField.add(value)
-        }
+            def key = config.getClazz()+"."+config.getName()
+            def newValuesPerField = missingMetaValues[key]
+            if (newValuesPerField == null) {
+                newValuesPerField = [value] as Set
+                missingMetaValues[key] = newValuesPerField
+            } else {
+                newValuesPerField.add(value)
+            }
             return;
         }
         //if (v!=null) {
@@ -449,6 +468,7 @@ class InventoryNamer implements Namer {
         public String getName(Object o) {
             if (o instanceof RootObject) {                 return "Inventory";
             } else if (o instanceof Server) {              return ((Server)o).getServerName();
+            } else if (o instanceof Application) {         return ((Application)o).getApplicationName();
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -458,6 +478,7 @@ class InventoryNamer implements Namer {
         public String getType(Object o) {
             if (o instanceof RootObject) {                 return "Inventory";
             } else if (o instanceof Server) {              return "Server";
+            } else if (o instanceof Application) {         return "Application";
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -467,10 +488,11 @@ class InventoryNamer implements Namer {
 class InventoryComparer extends BeanComparer {
     def connections
     def inventoryDBs
-    String serverFilter
+    String objectFilter, objectType
     
-    InventoryComparer(String serverFilter) {
-        this.serverFilter = serverFilter
+    InventoryComparer(String objectType, String objectFilter) {
+        this.objectFilter = objectFilter
+        this.objectType   = objectType
     }
 
     @Override
@@ -478,33 +500,38 @@ class InventoryComparer extends BeanComparer {
         String objectType = pair.getObjectType();
         Namer namer = session.getNamer();
         if (objectType.equals("Inventory")) {
-            def request = serverFilter == null ? new QueryRequest() : new QueryRequest(serverFilter)
-            def inventoryServers = session.inventoryService.getServerList(request) 
-            def importedServers = session.getExcelObjects()
+            def request = objectFilter == null ? new QueryRequest() : new QueryRequest(objectFilter)
+            def inventoryObjects;
+            if (objectType.equals("Server")) {
+                inventoryObjects= session.inventoryService.getServerList(request)
+            } else if (objectType.equals("Application")) {
+                inventoryObjects= session.inventoryService.getApplicationList(request)
+            }
+            def importedObjects = session.getExcelObjects()
 
-            session.logInfo("Total imported objects ${importedServers.size()}")
-            def childs = mergeCollections(pair, inventoryServers, importedServers, namer)
+            session.logInfo("Total imported objects ${importedObjects.size()}")
+            def childs = mergeCollections(pair, inventoryObjects, importedObjects, namer)
 
             session.logInfo("Total pairs ${childs.size()}")
 
             pair.getChildren().addAll(childs);
-        } else if (objectType.equals("Server")) {
-            Server sourceSrv = (Server)pair.getSource();
-            Server targetSrv = (Server)pair.getTarget();
+        } else if (objectType.equals("Server") || objectType.equals("Application")) {
+            BaseCustomEntity sourceObject = (BaseCustomEntity)pair.getSource()
+            BaseCustomEntity targetObject = (BaseCustomEntity)pair.getTarget()
 
             try {
-                Map sourceAttrs = sourceSrv == null ? null : new HashMap()
-                Map targetAttrs = targetSrv == null ? null : new HashMap()
+                Map sourceAttrs = sourceObject == null ? null : new HashMap()
+                Map targetAttrs = targetObject == null ? null : new HashMap()
 
                 // take into consideration only attributes that came from Excel
                 session.columnConfig.each { ci ->
                     // println "name="+ci.field.name
                     if (ci.contactRole==null) {
-                        if (sourceSrv!=null) {
-                            sourceAttrs[ci.field.name]=sourceSrv.getCustomData(ci.field.name)
+                        if (sourceObject!=null) {
+                            sourceAttrs[ci.field.name]=sourceObject.getCustomData(ci.field.name)
                         }
-                        if (targetSrv!=null) {
-                            targetAttrs[ci.field.name]=targetSrv.getCustomData(ci.field.name)
+                        if (targetObject!=null) {
+                            targetAttrs[ci.field.name]=targetObject.getCustomData(ci.field.name)
                         }
                     }
                 }
@@ -516,23 +543,31 @@ class InventoryComparer extends BeanComparer {
                 throw e
             }
         } else {
-            throw new SyncException("Unexpected object type "+ objectType);
+            throw new SyncException("Unexpected object type ${objectType}");
         }
     }
 }
 
-synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_server_filter)
+if (p_object_type.equals("Server")) {
+    synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_object_type, p_object_filter)
+} else if (p_object_type.equals("Application")) {
+    synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter)
+} else {
+    println "Unexpected object type ${p_object_type}. Only Server and Application are supported"
+    return
+}
+
 if (synchronizer.loadAndValidateExcel(parameters)) {
     logger.info("Parsing excel")
     rootObject = new RootObject("Repository", "Excel")
     synchronizer.syncObjects(rootObject, rootObject)
 
-    logger.info("synchronizer log:"+synchronizer.getLog())
+    // logger.info("synchronizer log:"+synchronizer.getLog())
 
     if (synchronizer.missingMetaValues.size()>0) {
         println "<p>Missing value(s) in Custom Fields with enumerations. Fix errors and re-run import</p>"
         synchronizer.missingMetaValues.each { key, value ->
-            println "<hr size=\"1\" /><p>Missing value(s) for "+key+"</p><br/>"
+            println "<hr size=\"1\" /><p>Missing value(s) for ${key}</p><br/>"
             println value.join("<br/>")
         }
         println "<hr size=\"1\" />"
@@ -543,8 +578,8 @@ if (synchronizer.loadAndValidateExcel(parameters)) {
             logger.info("Importing changes")
             synchronizer.applyChanges();
             synchronizer.setParameter("html",  sessionHtml.toString())
-            synchronizer.setParameter("title", "Server import from excel file")
-            syncService.saveSession(synchronizer, "Server Import")
+            synchronizer.setParameter("title", "Inventory import from excel")
+            syncService.saveSession(synchronizer, "Inventory Import (${p_object_type})")
             logger.info("Import completed successfully")
         }
         logger.info("Generating change log")

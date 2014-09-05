@@ -1,10 +1,17 @@
 <tools>
-    <tool id="import-servers" title="Import servers from Excel file" projectTypes="inventory">
-        <description>Import Servers into inventory</description>
+    <tool id="inventory-import" title="Inventory Import" projectTypes="inventory">
+        <description>Imports objects from excel</description>
 
         <parameters>
             <parameter name="p_excel_file"     title="File to Import (Excel)" type="file_ref" required="true" width="500" />
-            <parameter name="p_server_filter"  title="Inventory Server Filter" type="string" required="false" />
+            <parameter name="p_object_type"    title="Object Type"  type="string" required="true">
+                <values>
+                    <string>Server</string>
+                    <string>Application</string>
+                </values>
+            </parameter>
+
+            <parameter name="p_object_filter"  title="Inventory Object Filter" type="string" required="false" />
 
             <!--parameter name="p_objects" title="Missing objects" type="STRING" required="true">
                 <values>
@@ -23,6 +30,6 @@
             <parameter name="p_field_mapping" title="Field Mapping" type="text" required="false" width="200" height="5" />
         </parameters>
 
-        <output  script="import-servers.groovy" type="html" />
+        <output  script="inventory-import.groovy" type="html" />
     </tool>
 </tools>
