@@ -525,6 +525,10 @@ class InventoryComparer extends BeanComparer {
 
                 // take into consideration only attributes that came from Excel
                 session.columnConfig.each { ci ->
+                    if ("Last Change Date".equals(ci.field.name)){
+                        // TODO add readonly / system field check ? 
+                        return;
+                    }
                     // println "name="+ci.field.name
                     if (ci.contactRole==null) {
                         if (sourceObject!=null) {
