@@ -8,6 +8,7 @@
                 <values>
                     <string>Server</string>
                     <string>Application</string>
+                    <string>Connection</string>
                 </values>
             </parameter>
 

@@ -4,7 +4,6 @@ import java.util.List
 import java.util.Map.Entry
 
 import ExcelSynchronizer.MissingObject
-
 import static com.branegy.persistence.custom.BaseCustomEntity.getDiscriminator;
 
 import java.io.File;
@@ -24,37 +23,38 @@ import java.lang.reflect.ParameterizedType;
 import java.text.SimpleDateFormat;
 
 import org.apache.commons.io.IOUtils
-
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.ss.usermodel.DateUtil
-
+import org.apache.poi.util.FixedField;
+import org.junit.After;
 import org.slf4j.Logger;
 
+import com.branegy.dbmaster.connection.ConnectorInfo;
 import com.branegy.dbmaster.custom.CustomFieldConfig;
 import com.branegy.dbmaster.custom.CustomFieldConfig.Type;
 import com.branegy.dbmaster.custom.field.server.api.ICustomFieldService;
-
 import com.branegy.inventory.api.InventoryService;
 import com.branegy.inventory.model.*;
 import com.branegy.persistence.custom.BaseCustomEntity;
 import com.branegy.scripting.DbMaster;
 import com.branegy.service.core.exception.EntityNotFoundApiException;
-
 import com.branegy.dbmaster.model.NamedObject;
 import com.branegy.dbmaster.sync.api.*
 import com.branegy.dbmaster.sync.impl.RootObject
 import com.branegy.dbmaster.sync.impl.BeanComparer;
 import com.branegy.dbmaster.sync.api.SyncPair.ChangeType;
 import com.branegy.dbmaster.sync.api.SyncAttributePair.AttributeChangeType;
-
 import com.branegy.service.connection.api.ConnectionService;
 import com.branegy.service.connection.model.DatabaseConnection;
+import com.branegy.service.connection.model.DatabaseConnection.PropertyInfo;
 import com.branegy.service.core.QueryRequest
 import com.branegy.dbmaster.sync.api.SyncSession.SearchTarget
+
+import com.google.common.collect.BiMap; 
 
 
 //CHECKSTYLE:OFF
@@ -73,6 +73,7 @@ public class ExcelSynchronizer extends SyncSession {
     String contacts=""
     DbMaster dbm
     InventoryService inventoryService
+    ConnectionService connectionService
     Sheet sheet;
 
     def missingMetaValues = [:]
@@ -94,8 +95,13 @@ public class ExcelSynchronizer extends SyncSession {
 
     public static enum MissingObject { CREATE, IGNORE }
 
+    Set<String> fixedFields = Collections.emptySet();
     Class targetClass;
     String keyColumnName;
+    
+    Map<String,ConnectorInfo> driverNames = null;
+    Map<String,ConnectorInfo> driverIds = null;
+    Map<String,Set<String>> propertySuperSet = null;
 
     ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType, String objectFilter) {
         super(new InventoryComparer(objectType, objectFilter))
@@ -105,13 +111,28 @@ public class ExcelSynchronizer extends SyncSession {
         this.targetClass = targetClass
         this.keyColumnName = keyColumnName
         inventoryService = dbm.getService(InventoryService.class)
+        connectionService = dbm.getService(ConnectionService.class)
+        if (targetClass == DatabaseConnection.class){
+            driverNames = [:];
+            driverIds = [:];
+            propertySuperSet = [:];
+            connectionService.getDriverList().each {
+                driverNames.put(it.getName(), it);
+                driverIds.put(it.getId(), it);
+                Set<String> set = [] as Set;
+                propertySuperSet.put(it.getName(), set)
+                it.getProperties().each {
+                    set.add(it.getKey());
+                }
+            }
+        }
     }
 
      public void importChanges(SyncPair pair) {
         String objectType = pair.getObjectType();
         if (objectType.equals("Inventory")) {
             pair.getChildren().each { importChanges(it) }
-        } else if (objectType.equals("Server") || objectType.equals("Application")) {
+        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection")) {
             BaseCustomEntity sourceObj = (BaseCustomEntity)pair.getSource()
             BaseCustomEntity targetObj = (BaseCustomEntity)pair.getTarget()
 
@@ -121,18 +142,48 @@ public class ExcelSynchronizer extends SyncSession {
                         inventoryService.createServer(targetObj)
                     } else if (objectType.equals("Application")) {
                         inventoryService.createApplication(targetObj)
+                    } else if (objectType.equals("Connection")){
+                        targetObj.setDriver(driverNames.get(targetObj.getDriver()).getId());
+                        
+                        pair.getAttributes().findAll {!fixedFields.contains(it.getAttributeName())}.each { attr ->
+                            if (attr.getChangeType() != AttributeChangeType.EQUALS) {
+                                targetObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            }
+                        }
+                    
+                        connectionService.createConnection(targetObj)
                     }
                     break;
                 case ChangeType.CHANGED:
-                    for (SyncAttributePair attr : pair.getAttributes()) {
-                        if (attr.getChangeType() != AttributeChangeType.EQUALS) {
-                            sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
-                        }
-                    }
+                    
                     if (objectType.equals("Server")) {
+                        for (SyncAttributePair attr : pair.getAttributes()) {
+                            if (attr.getChangeType() != AttributeChangeType.EQUALS) {
+                                sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            }
+                        }
                         inventoryService.saveServer(sourceObj)
                     } else if (objectType.equals("Application")) {
+                        for (SyncAttributePair attr : pair.getAttributes()) {
+                            if (attr.getChangeType() != AttributeChangeType.EQUALS) {
+                                sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            }
+                        }
                         inventoryService.updateApplication(sourceObj)
+                    } else if (objectType.equals("Connection")) {
+                        sourceObj.setDriver(driverNames.get(targetObj.getDriver()).getId());
+                        sourceObj.setProperties(targetObj.getProperties());
+                        sourceObj.setUsername(targetObj.getUsername());
+                        sourceObj.setPassword(targetObj.getPassword());
+                        sourceObj.setUrl(targetObj.getUrl());
+                        
+                        pair.getAttributes().findAll {!fixedFields.contains(it.getAttributeName())}.each { attr ->
+                            if (attr.getChangeType() != AttributeChangeType.EQUALS) {
+                                targetObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            }
+                        }
+                    
+                        connectionService.updateConnection(sourceObj)
                     }
                     break;
                 case ChangeType.DELETED:
@@ -140,6 +191,8 @@ public class ExcelSynchronizer extends SyncSession {
                         inventoryService.deleteServer(sourceObj.getId())
                     } else if (objectType.equals("Application")) {
                         inventoryService.deleteApplication(sourceObj.getId())
+                    } else if (objectType.equals("Connection")) {
+                        connectionService.deleteConnection(sourceObj);
                     }
                     break;
                 case ChangeType.COPIED:
@@ -253,20 +306,46 @@ public class ExcelSynchronizer extends SyncSession {
                 String fieldName = value;
                 CustomFieldConfig config = service.getConfigByName(targetClass, fieldName);
                 if (config == null){
-                    logError("Field ${getDiscriminator(targetClass)}.[${fieldName}] not found");
-                    continue;
+                    if (fixedFields.contains(fieldName)){
+                        fixedFields.remove(fieldName);
+                    } else {
+                        logError("Field ${getDiscriminator(targetClass)}.[${fieldName}] not found");
+                        continue;
+                    }
                 }
                 if (keyColumnName.equals(fieldName)){
                     objectKeyColumnIndex = i;
                     continue;
                 }
                 // TODO Handle situation when fields we have duplicates in source field names
-                columnConfig.add(new ColumnInfo(i, null, config));
+                if (config == null){
+                    columnConfig.add(new ColumnInfo(i, null, fieldName));
+                } else {
+                    columnConfig.add(new ColumnInfo(i, null, config));
+                }
             }
         }
         if (objectKeyColumnIndex == -1){
             logError("Key field ${keyColumnName} not found in excel");
         }
+        if (targetClass == DatabaseConnection.class){
+            if (fixedFields.contains("Connection Name")){
+                logError("Field \"Connection Name\" not found");
+            }
+            if (fixedFields.contains("User")){
+                logError("Field \"User\" not found");
+            }
+            if (fixedFields.contains("Password")){
+                logError("Field \"Password\" not found");
+            }
+            if (fixedFields.contains("Connection URL")){
+                logError("Field \"Connection URL\" not found");
+            }
+            if (fixedFields.contains("Driver")){
+                logError("Field \"Driver\" not found");
+            }
+        }
+            
         for (ColumnInfo ci:columnConfig){
             if (ci.contactRole!=null){
                 ci.contactNameIndex = role2ContactNameIndex.get(ci.contactRole);
@@ -308,7 +387,11 @@ public class ExcelSynchronizer extends SyncSession {
                 objectToImport = processedObjects.get(objectName);
             }
             objectToImport = targetClass.newInstance();
-            objectToImport.setCustomData(keyColumnName, objectName);
+            if (targetClass != DatabaseConnection.class){
+                objectToImport.setCustomData(keyColumnName, objectName);
+            } else {
+                objectToImport.setName(objectName);
+            }
             logInfo("Processing row ${row.getRowNum()}: ${objectName}");
 
             processedObjects[objectName] = objectToImport;
@@ -318,6 +401,30 @@ public class ExcelSynchronizer extends SyncSession {
                 String value = getStringValue(row, info.index);
                 if (info.contactRole!=null) {
                     // skip for now
+                } else if (info.fixedFieldName != null){
+                    if (targetClass == DatabaseConnection.class){
+                        if (info.fixedFieldName == "User"){
+                            objectToImport.setUsername(value);
+                        } else if (info.fixedFieldName == "Password"){
+                            objectToImport.setPassword(value);
+                        } else if (info.fixedFieldName == "Connection URL"){
+                            objectToImport.setUrl(value);
+                        } else if (info.fixedFieldName == "Driver"){
+                            objectToImport.setDriver(value);
+                            if (propertySuperSet.containsKey(value)){
+                                Set<String> set = propertySuperSet.get(value);
+                                List<PropertyInfo> pl = [];
+                                columnConfig.findAll{ it.fixedFieldName != null && set.contains(it.fixedFieldName) }
+                                            .each { 
+                                                PropertyInfo pi = new PropertyInfo();
+                                                pi.setKey(it.fixedFieldName);
+                                                pi.setValue(getStringValue(row, it.index));
+                                                pl.add(pi)
+                                            }
+                                objectToImport.setProperties(pl.toArray(new PropertyInfo[0]));
+                            }
+                        }
+                    }
                 } else {
                     // logInfo("Set custom field  "+info.field.name+" to value "+ value);
                     setupCustomField(info.field, objectToImport, value, row.getRowNum(), info.index);
@@ -454,11 +561,19 @@ public class ExcelSynchronizer extends SyncSession {
 
         int index;
         CustomFieldConfig field;
+        
+        String fixedFieldName;
 
         public ColumnInfo(int index, String contactRole, CustomFieldConfig field) {
             this.index = index;
             this.contactRole = contactRole;
             this.field = field;
+        }
+        
+        public ColumnInfo(int index, String contactRole, String fixedFieldName) {
+            this.index = index;
+            this.contactRole = contactRole;
+            this.fixedFieldName = fixedFieldName;
         }
     }
 }
@@ -469,6 +584,7 @@ class InventoryNamer implements Namer {
             if (o instanceof RootObject) {                 return "Inventory";
             } else if (o instanceof Server) {              return ((Server)o).getServerName();
             } else if (o instanceof Application) {         return ((Application)o).getApplicationName();
+            } else if (o instanceof DatabaseConnection) {  return ((DatabaseConnection)o).getName();
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -479,6 +595,7 @@ class InventoryNamer implements Namer {
             if (o instanceof RootObject) {                 return "Inventory";
             } else if (o instanceof Server) {              return "Server";
             } else if (o instanceof Application) {         return "Application";
+            } else if (o instanceof DatabaseConnection) {  return "Connection";
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -506,6 +623,8 @@ class InventoryComparer extends BeanComparer {
                 inventoryObjects= session.inventoryService.getServerList(request)
             } else if (session.targetClass == Application.class) {
                 inventoryObjects= session.inventoryService.getApplicationList(request)
+            } else if (session.targetClass == DatabaseConnection.class) {
+                inventoryObjects= session.connectionService.getConnectionSlice(request,null); // TODO do refactoring
             }
             def importedObjects = session.getExcelObjects()
 
@@ -515,16 +634,53 @@ class InventoryComparer extends BeanComparer {
             session.logInfo("Total pairs ${childs.size()}")
 
             pair.getChildren().addAll(childs);
-        } else if (objectType.equals("Server") || objectType.equals("Application")) {
+        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection")) {
             BaseCustomEntity sourceObject = (BaseCustomEntity)pair.getSource()
             BaseCustomEntity targetObject = (BaseCustomEntity)pair.getTarget()
 
             try {
-                Map sourceAttrs = sourceObject == null ? null : new HashMap()
-                Map targetAttrs = targetObject == null ? null : new HashMap()
+                Map sourceAttrs = new HashMap()
+                Map targetAttrs = new HashMap()
 
                 // take into consideration only attributes that came from Excel
                 session.columnConfig.each { ci ->
+                    if (ci.fixedFieldName != null && objectType.equals("Connection")){
+                        Object sv = null;
+                        Object tv = null;
+                        if (ci.fixedFieldName == "Connection Name"){
+                             sv = sourceObject?.getName();
+                             tv = targetObject?.getName();
+                        } else if (ci.fixedFieldName == "User"){
+                            sv = sourceObject?.getUsername();
+                            tv = targetObject?.getUsername();
+                        } else if (ci.fixedFieldName == "Password"){
+                            sv = sourceObject?.getPassword();
+                            tv = targetObject?.getPassword();
+                        } else if (ci.fixedFieldName == "Connection URL"){
+                            sv = sourceObject?.getUrl();
+                            tv = targetObject?.getUrl();
+                        } else if (ci.fixedFieldName == "Driver"){
+                            sv = sourceObject?.getDriver();
+                            if (sv!=null && session.driverIds.containsKey(sv)){
+                                sv = session.driverIds.get(sv).getName();
+                            }
+                            tv = targetObject?.getDriver();
+                            
+                            sourceObject?.getProperties()?.each{
+                                sourceAttrs[it.getKey()]=it.getValue()
+                            }
+                            targetObject?.getProperties()?.each{
+                                targetAttrs[it.getKey()]=it.getValue()
+                            }
+                        } else {
+                            return;
+                        }
+                        
+                        sourceAttrs[ci.fixedFieldName]=sv
+                        targetAttrs[ci.fixedFieldName]=tv
+                        return;
+                    }
+                    
                     if ("Last Change Date".equals(ci.field.name)){
                         // TODO add readonly / system field check ? 
                         return;
@@ -556,8 +712,16 @@ if (p_object_type.equals("Server")) {
     synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_object_type, p_object_filter)
 } else if (p_object_type.equals("Application")) {
     synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter)
+} else if (p_object_type.equals("Connection")) {
+    synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", p_object_type, p_object_filter)
+    synchronizer.fixedFields = ["Connection Name","User", "Password","Connection URL","Driver"];
+    synchronizer.connectionService.getDriverList().each { 
+        it.getProperties().each {
+            synchronizer.fixedFields.add(it.getKey());
+        }
+    }
 } else {
-    println "Unexpected object type ${p_object_type}. Only Server and Application are supported"
+    println "Unexpected object type ${p_object_type}. Only Server,Application and Connection are supported"
     return
 }
 
