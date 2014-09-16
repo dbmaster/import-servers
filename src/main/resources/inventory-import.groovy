@@ -30,7 +30,6 @@ import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.util.FixedField;
-import org.junit.After;
 import org.slf4j.Logger;
 
 import com.branegy.dbmaster.connection.ConnectorInfo;
@@ -143,7 +142,7 @@ public class ExcelSynchronizer extends SyncSession {
                     } else if (objectType.equals("Application")) {
                         inventoryService.createApplication(targetObj)
                     } else if (objectType.equals("Connection")){
-                        targetObj.setDriver(driverNames.get(targetObj.getDriver()).getId());
+                        targetObj.setDriver(driverNames.get(targetObj.getDriver()).getId())
                         
                         pair.getAttributes().findAll {!fixedFields.contains(it.getAttributeName())}.each { attr ->
                             if (attr.getChangeType() != AttributeChangeType.EQUALS) {
@@ -171,15 +170,15 @@ public class ExcelSynchronizer extends SyncSession {
                         }
                         inventoryService.updateApplication(sourceObj)
                     } else if (objectType.equals("Connection")) {
-                        sourceObj.setDriver(driverNames.get(targetObj.getDriver()).getId());
-                        sourceObj.setProperties(targetObj.getProperties());
-                        sourceObj.setUsername(targetObj.getUsername());
-                        sourceObj.setPassword(targetObj.getPassword());
-                        sourceObj.setUrl(targetObj.getUrl());
+                        sourceObj.setDriver(driverNames.get(targetObj.getDriver()).getId())
+                        sourceObj.setProperties(targetObj.getProperties())
+                        sourceObj.setUsername(targetObj.getUsername())
+                        sourceObj.setPassword(targetObj.getPassword())
+                        sourceObj.setUrl(targetObj.getUrl())
                         
                         pair.getAttributes().findAll {!fixedFields.contains(it.getAttributeName())}.each { attr ->
                             if (attr.getChangeType() != AttributeChangeType.EQUALS) {
-                                targetObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                                sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
                             }
                         }
                     
@@ -714,14 +713,14 @@ if (p_object_type.equals("Server")) {
     synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter)
 } else if (p_object_type.equals("Connection")) {
     synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", p_object_type, p_object_filter)
-    synchronizer.fixedFields = ["Connection Name","User", "Password","Connection URL","Driver"];
+    synchronizer.fixedFields = ["Connection Name", "User", "Password", "Connection URL", "Driver"];
     synchronizer.connectionService.getDriverList().each { 
         it.getProperties().each {
             synchronizer.fixedFields.add(it.getKey());
         }
     }
 } else {
-    println "Unexpected object type ${p_object_type}. Only Server,Application and Connection are supported"
+    println "Unexpected object type ${p_object_type}. Only Server, Application, and Connection are supported"
     return
 }
 
