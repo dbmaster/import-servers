@@ -6,21 +6,21 @@ import java.util.Map.Entry
 import ExcelSynchronizer.MissingObject
 import static com.branegy.persistence.custom.BaseCustomEntity.getDiscriminator;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.lang.reflect.ParameterizedType;
-import java.text.SimpleDateFormat;
+import java.io.File
+import java.io.FileInputStream
+import java.util.ArrayList
+import java.util.Collections
+import java.util.HashMap
+import java.util.HashSet
+import java.util.LinkedHashSet
+import java.util.List
+import java.util.Map
+import java.util.Set
+import java.util.TreeSet
+import java.util.regex.Matcher
+import java.util.regex.Pattern
+import java.lang.reflect.ParameterizedType
+import java.text.SimpleDateFormat
 
 import org.apache.commons.io.IOUtils
 import org.apache.poi.ss.usermodel.Cell
@@ -29,32 +29,30 @@ import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.Workbook
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.ss.usermodel.DateUtil
-import org.apache.poi.util.FixedField;
-import org.slf4j.Logger;
+import org.apache.poi.util.FixedField
+import org.slf4j.Logger
 
-import com.branegy.dbmaster.connection.ConnectorInfo;
-import com.branegy.dbmaster.custom.CustomFieldConfig;
-import com.branegy.dbmaster.custom.CustomFieldConfig.Type;
-import com.branegy.dbmaster.custom.field.server.api.ICustomFieldService;
-import com.branegy.inventory.api.InventoryService;
-import com.branegy.inventory.model.*;
-import com.branegy.persistence.custom.BaseCustomEntity;
-import com.branegy.scripting.DbMaster;
-import com.branegy.service.core.exception.EntityNotFoundApiException;
-import com.branegy.dbmaster.model.NamedObject;
+import com.branegy.dbmaster.connection.ConnectorInfo
+import com.branegy.dbmaster.custom.CustomFieldConfig
+import com.branegy.dbmaster.custom.CustomFieldConfig.Type
+import com.branegy.dbmaster.custom.field.server.api.ICustomFieldService
+import com.branegy.inventory.api.InventoryService
+import com.branegy.inventory.model.*
+import com.branegy.persistence.custom.BaseCustomEntity
+import com.branegy.scripting.DbMaster
+import com.branegy.service.core.exception.EntityNotFoundApiException
+import com.branegy.dbmaster.model.NamedObject
 import com.branegy.dbmaster.sync.api.*
 import com.branegy.dbmaster.sync.impl.RootObject
-import com.branegy.dbmaster.sync.impl.BeanComparer;
-import com.branegy.dbmaster.sync.api.SyncPair.ChangeType;
-import com.branegy.dbmaster.sync.api.SyncAttributePair.AttributeChangeType;
-import com.branegy.service.connection.api.ConnectionService;
-import com.branegy.service.connection.model.DatabaseConnection;
-import com.branegy.service.connection.model.DatabaseConnection.PropertyInfo;
+import com.branegy.dbmaster.sync.impl.BeanComparer
+import com.branegy.dbmaster.sync.api.SyncPair.ChangeType
+import com.branegy.dbmaster.sync.api.SyncAttributePair.AttributeChangeType
+import com.branegy.service.connection.api.ConnectionService
+import com.branegy.service.connection.model.DatabaseConnection
+import com.branegy.service.connection.model.DatabaseConnection.PropertyInfo
 import com.branegy.service.core.QueryRequest
 import com.branegy.dbmaster.sync.api.SyncSession.SearchTarget
-
-import com.google.common.collect.BiMap; 
-
+import com.branegy.cfg.IPropertySupplier
 
 //CHECKSTYLE:OFF
 public class ExcelSynchronizer extends SyncSession {
@@ -101,13 +99,24 @@ public class ExcelSynchronizer extends SyncSession {
     Map<String,ConnectorInfo> driverNames = null;
     Map<String,ConnectorInfo> driverIds = null;
     Map<String,Set<String>> propertySuperSet = null;
+    
+    String dataSource
+    String roleField
 
-    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType, String objectFilter) {
+    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType, String objectFilter,
+        String dataSource) {
         super(new InventoryComparer(objectType, objectFilter))
         setNamer(new InventoryNamer())
         this.dbm = dbm
         this.logger = logger
+
         this.targetClass = targetClass
+        this.dataSource = dataSource
+        
+        def globalProperties = dbm.getService(IPropertySupplier.class)
+        roleField = globalProperties.getProperty("contract_role.role.field_name","ContactRole")
+        logger.debug("Will be using field ${roleField}")
+        
         this.keyColumnName = keyColumnName
         inventoryService = dbm.getService(InventoryService.class)
         connectionService = dbm.getService(ConnectionService.class)
@@ -137,6 +146,9 @@ public class ExcelSynchronizer extends SyncSession {
 
             switch (pair.getChangeType()) {
                 case ChangeType.NEW:
+                    if (dataSource!=null) {
+                        targetObj.setCustomData("Source", dataSource)
+                    }
                     if (objectType.equals("Server")) {
                         inventoryService.createServer(targetObj)
                     } else if (objectType.equals("Application")) {
@@ -154,7 +166,9 @@ public class ExcelSynchronizer extends SyncSession {
                     }
                     break;
                 case ChangeType.CHANGED:
-                    
+                    if (dataSource!=null) {
+                        sourceObj.setCustomData("Source", dataSource)
+                    }
                     if (objectType.equals("Server")) {
                         for (SyncAttributePair attr : pair.getAttributes()) {
                             if (attr.getChangeType() != AttributeChangeType.EQUALS) {
@@ -246,17 +260,17 @@ public class ExcelSynchronizer extends SyncSession {
     }
 
     private void validateHeader(ICustomFieldService service, Set<String> headerSet, String fieldMappingStr) {
-        if (service.getConfigByName(Contact.class, Contact.NAME)==null){
-            logError((Contact.class)+"."+Contact.NAME+" not found");
+        if (service.getConfigByName("Contact", Contact.NAME)==null){
+            logError("Field "+getDiscriminator(Contact.class)+"."+Contact.NAME+" not found");
             return;
         }
-        CustomFieldConfig contactLinkRole = service.getConfigByName(ContactLink.class, ContactLink.ROLE);
+        CustomFieldConfig contactLinkRole = service.getConfigByName("ContactLink", roleField);
         if (contactLinkRole == null){
-            logError(getDiscriminator(ContactLink.class)+"."+ContactLink.ROLE+" not found");
+            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} not found");
             return;
         }
         if (contactLinkRole.getTextValues().isEmpty()){
-            logError(getDiscriminator(ContactLink.class)+"."+ContactLink.ROLE+" must be multivalue");
+            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} must be multivalue");
             return;
         }
         Set<String> contactLinkRoleSet = new HashSet<String>(contactLinkRole.getTextValues());
@@ -286,24 +300,24 @@ public class ExcelSynchronizer extends SyncSession {
             if (matcher.matches()) { // contact field
                 String role = matcher.group(1);
                 if (!contactLinkRoleSet.contains(role)){
-                    logError("${getDiscriminator(ContactLink.class)}.${ContactLink.ROLE} ${role} not in ${contactLinkRoleSet}");
+                    logError("${getDiscriminator(ContactLink.class)}.${roleField} ${role} not in ${contactLinkRoleSet}");
                 }
                 String fieldName = matcher.group(2);
-                CustomFieldConfig config = service.getConfigByName(Contact.class, fieldName);
+                CustomFieldConfig config = service.getConfigByName("Contact", fieldName);
                 if (config == null){
-                    logError("Field "+getDiscriminator(Contact.class)+".["+fieldName+"] not found");
+                    logError("Field ${getDiscriminator(Contact.class)}.[${fieldName}] not found");
                     continue;
                 }
                 if (fieldName.equals(Contact.NAME)){
                     if (role2ContactNameIndex.put(role, i) != null){
-                        logError("Multiple contactName for role "+role);
+                        logError("Multiple contactName for role ${role}");
                     }
                 }
-                logInfo("Found contact field " + fieldName + " for role ${role} index "+i);
+                logInfo("Found contact field ${fieldName} for role ${role} index ${i}");
                 columnConfig.add(new ColumnInfo(i, role, config));
             } else { // simple field
                 String fieldName = value;
-                CustomFieldConfig config = service.getConfigByName(targetClass, fieldName);
+                CustomFieldConfig config = service.getConfigByName(getDiscriminator(targetClass), fieldName);
                 if (config == null){
                     if (fixedFields.contains(fieldName)){
                         fixedFields.remove(fieldName);
@@ -435,7 +449,7 @@ public class ExcelSynchronizer extends SyncSession {
 
     protected ContactLink findByRole(String role, List<ContactLink> contactLinks) {
         for (ContactLink link:contactLinks) {
-            if (role.equals(link.getCustomData(ContactLink.ROLE))) {
+            if (role.equals(link.getCustomData(roleField))) {
                 return link;
             }
         }
@@ -708,15 +722,15 @@ class InventoryComparer extends BeanComparer {
 }
 
 if (p_object_type.equals("Server")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_object_type, p_object_filter)
+    synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_object_type, p_object_filter, p_source)
 } else if (p_object_type.equals("Application")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter)
+    synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter, p_source)
 } else if (p_object_type.equals("Connection")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", p_object_type, p_object_filter)
-    synchronizer.fixedFields = ["Connection Name", "User", "Password", "Connection URL", "Driver"];
+    synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", p_object_type, p_object_filter, p_source)
+    synchronizer.fixedFields = ["Connection Name", "User", "Password", "Connection URL", "Driver"]
     synchronizer.connectionService.getDriverList().each { 
         it.getProperties().each {
-            synchronizer.fixedFields.add(it.getKey());
+            synchronizer.fixedFields.add(it.getKey())
         }
     }
 } else {

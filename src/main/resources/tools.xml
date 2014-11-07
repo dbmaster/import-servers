@@ -13,6 +13,7 @@
             </parameter>
 
             <parameter name="p_object_filter"  title="Inventory Object Filter" type="string" required="false" />
+            <parameter name="p_source"         title="Data Source" type="string" required="false" />
 
             <!--parameter name="p_objects" title="Missing objects" type="STRING" required="true">
                 <values>
