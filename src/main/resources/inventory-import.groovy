@@ -258,13 +258,21 @@ public class ExcelSynchronizer extends SyncSession {
             IOUtils.closeQuietly(fis);
         }
     }
+    
+    private CustomFieldConfig getConfigByName(ICustomFieldService service, String className, String name){
+        try{
+            return service.getConfigByName(className, name);
+        } catch (EntityNotFoundApiException e){
+            return null;
+        }
+    }
 
     private void validateHeader(ICustomFieldService service, Set<String> headerSet, String fieldMappingStr) {
-        if (service.getConfigByName("Contact", Contact.NAME)==null){
+        if (getConfigByName(service,"Contact", Contact.NAME)==null){
             logError("Field "+getDiscriminator(Contact.class)+"."+Contact.NAME+" not found");
             return;
         }
-        CustomFieldConfig contactLinkRole = service.getConfigByName("ContactLink", roleField);
+        CustomFieldConfig contactLinkRole = getConfigByName(service, "ContactLink", roleField);
         if (contactLinkRole == null){
             logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} not found");
             return;
@@ -303,7 +311,7 @@ public class ExcelSynchronizer extends SyncSession {
                     logError("${getDiscriminator(ContactLink.class)}.${roleField} ${role} not in ${contactLinkRoleSet}");
                 }
                 String fieldName = matcher.group(2);
-                CustomFieldConfig config = service.getConfigByName("Contact", fieldName);
+                CustomFieldConfig config = getConfigByName(service, "Contact", fieldName);
                 if (config == null){
                     logError("Field ${getDiscriminator(Contact.class)}.[${fieldName}] not found");
                     continue;
@@ -317,7 +325,7 @@ public class ExcelSynchronizer extends SyncSession {
                 columnConfig.add(new ColumnInfo(i, role, config));
             } else { // simple field
                 String fieldName = value;
-                CustomFieldConfig config = service.getConfigByName(getDiscriminator(targetClass), fieldName);
+                CustomFieldConfig config = getConfigByName(service,getDiscriminator(targetClass), fieldName);
                 if (config == null){
                     if (fixedFields.contains(fieldName)){
                         fixedFields.remove(fieldName);
