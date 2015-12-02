@@ -44,4 +44,10 @@ Standard connection fields are:
 
 Driver parameters are defined in the data/drivers.ini file. 
 
+## Importing related contacts
+
+Servers and applications in dbmaster can have serveral related contacts.
+Plugin can import multiple related contacts per objects.
+To import related contacts it is necessary to add a number of columns in format Contact(&lt;role-name&gt;).&lt;field-name&gt;
+
 ## Import File Sample
