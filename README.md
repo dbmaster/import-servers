@@ -1,6 +1,6 @@
 Inventory-import plugin synchronizes objects from excel file with project data.
 
-Current implementation supports importing Applications, Servers, and Connections.
+Current implementation supports import of Applications, Servers, and Connections.
 
 ## Parameters
 
@@ -46,8 +46,12 @@ Driver parameters are defined in the data/drivers.ini file.
 
 ## Importing related contacts
 
-Servers and applications in dbmaster can have serveral related contacts.
-Plugin can import multiple related contacts per objects.
-To import related contacts it is necessary to add a number of columns in format Contact(&lt;role-name&gt;).&lt;field-name&gt;
+Servers and applications in dbmaster can have multiple related contacts (for example business owner or vendor contacts)
+To import contacts it is necessary to add a number of columns in format Contact(&lt;role-name&gt;).&lt;field-name&gt;
+For each role at least one field-name should be specified: 
 
-## Import File Sample
+## Import File Samples
+
+* Application import sample
+* Server import sample
+* Connection import sample
