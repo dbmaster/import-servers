@@ -43,11 +43,13 @@ Standard connection fields are:
 
 Driver parameters are defined in the data/drivers.ini file. 
 
+<!--
 ## Importing related contacts
 
 Servers and applications in dbmaster can have multiple related contacts (for example business owner or vendor contacts)
 To import contacts it is necessary to add a number of columns in format Contact(&lt;role-name&gt;).&lt;field-name&gt;
 For each role at least one field-name should be specified: 
+-->
 
 ## Import File Samples
 
