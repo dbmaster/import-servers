@@ -4,7 +4,7 @@ import java.util.List
 import java.util.Map.Entry
 
 import ExcelSynchronizer.MissingObject
-import static com.branegy.persistence.custom.BaseCustomEntity.getDiscriminator;
+import static com.branegy.persistence.custom.BaseCustomEntity.getDiscriminator
 
 import java.io.File
 import java.io.FileInputStream
@@ -76,11 +76,11 @@ public class ExcelSynchronizer extends SyncSession {
     def missingMetaValues = [:]
 
     List dateParsers = [ new SimpleDateFormat("MMM d, yyyy"),
-                         new SimpleDateFormat("EEE MMM d, yyyy h:mm a"),
                          new SimpleDateFormat("MMM d,yyyy h:mm a"),
-                         new SimpleDateFormat("EEE MMM d h:mm:ss z yyyy"),
-                         new SimpleDateFormat("MMM d,yyyy h:mm:ss")]
-                            
+                         new SimpleDateFormat("MMM d,yyyy h:mm:ss"),
+                         new SimpleDateFormat("EEE MMM d, yyyy h:mm a"),
+                         new SimpleDateFormat("EEE MMM d h:mm:ss z yyyy") ]
+
 
     private void logError(String error){
         this.error = true;
@@ -103,8 +103,8 @@ public class ExcelSynchronizer extends SyncSession {
     String dataSource
     String roleField
 
-    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType, String objectFilter,
-        String dataSource) {
+    ExcelSynchronizer(DbMaster dbm, Logger logger, Class targetClass, String keyColumnName, String objectType,
+        String objectFilter, String dataSource) {        
         super(new InventoryComparer(objectType, objectFilter))
         setNamer(new InventoryNamer())
         this.dbm = dbm
@@ -161,7 +161,6 @@ public class ExcelSynchronizer extends SyncSession {
                                 targetObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
                             }
                         }
-                    
                         connectionService.createConnection(targetObj)
                     }
                     break;
@@ -221,7 +220,7 @@ public class ExcelSynchronizer extends SyncSession {
 
     public void applyChanges() {
         try {
-            importChanges(getSyncResult());
+            importChanges(getSyncResult())
         } finally {
             dbm.closeResources()
         }
@@ -240,53 +239,53 @@ public class ExcelSynchronizer extends SyncSession {
 
             sheet = wb.getSheetAt(0)
 
-            Row header = sheet.getRow(0);
-            Set<String> headerSet = new LinkedHashSet<String>();
-            for (Cell cell:header) {
-                headerSet.add(cell.getStringCellValue());
+            Row header = sheet.getRow(0)
+            Set<String> headerSet = new LinkedHashSet<String>()
+            for (Cell cell : header) {
+                headerSet.add(cell.getStringCellValue()
             }
             def mapping = parameters.p_field_mapping
-            validateHeader(dbm.getService(ICustomFieldService.class), headerSet, mapping);
+            validateHeader(dbm.getService(ICustomFieldService.class), headerSet, mapping)
             if (error) {
-                dbm.setRollbackOnly();
+                dbm.setRollbackOnly()
             }
             return !error;
         } catch (Exception e) {
-            dbm.setRollbackOnly();
+            dbm.setRollbackOnly()
             throw e;
         } finally {
-            IOUtils.closeQuietly(fis);
+            IOUtils.closeQuietly(fis)
         }
     }
     
-    private CustomFieldConfig getConfigByName(ICustomFieldService service, String className, String name){
-        try{
-            return service.getConfigByName(className, name);
-        } catch (EntityNotFoundApiException e){
-            return null;
+    private CustomFieldConfig getConfigByName(ICustomFieldService service, String className, String name) {
+        try {
+            return service.getConfigByName(className, name)
+        } catch (EntityNotFoundApiException e) {
+            return null
         }
     }
 
     private void validateHeader(ICustomFieldService service, Set<String> headerSet, String fieldMappingStr) {
-        if (getConfigByName(service,"Contact", Contact.NAME)==null){
-            logError("Field "+getDiscriminator(Contact.class)+"."+Contact.NAME+" not found");
-            return;
+        if (getConfigByName(service, "Contact", Contact.NAME)==null) {
+            logError("Field " + getDiscriminator(Contact.class) + "." + Contact.NAME + " not found")
+            return
         }
-        CustomFieldConfig contactLinkRole = getConfigByName(service, "ContactLink", roleField);
-        if (contactLinkRole == null){
-            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} not found");
-            return;
+        CustomFieldConfig contactLinkRole = getConfigByName(service, "ContactLink", roleField)
+        if (contactLinkRole == null) {
+            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} not found")
+            return
         }
-        if (contactLinkRole.getTextValues().isEmpty()){
-            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} must be multivalue");
-            return;
+        if (contactLinkRole.getTextValues().isEmpty()) {
+            logError("Field "+getDiscriminator(ContactLink.class)+".${roleField} must be multivalue")
+            return
         }
-        Set<String> contactLinkRoleSet = new HashSet<String>(contactLinkRole.getTextValues());
+        Set<String> contactLinkRoleSet = new HashSet<String>(contactLinkRole.getTextValues())
 
         columnConfig = []
-        Pattern pattern = Pattern.compile("Contact\\(([^)]+)\\)\\.(.+)");
-        Map<String,Integer> role2ContactNameIndex = new HashMap<String, Integer>();
-        int i = -1;
+        Pattern pattern = Pattern.compile("Contact\\(([^)]+)\\)\\.(.+)")
+        Map<String,Integer> role2ContactNameIndex = new HashMap<String, Integer>()
+        int i = -1
 
         def fieldMapping = [:]
         if (fieldMappingStr!=null) {
@@ -295,19 +294,19 @@ public class ExcelSynchronizer extends SyncSession {
                 fieldMapping.put(key_value[0], key_value[1])
             }
         }
-        logInfo("Field Mappings="+fieldMapping)
+        logInfo("Field Mappings=" + fieldMapping)
 
-        for (String value:headerSet) {
-            i++;
-            if (fieldMapping[value]!=null) {
+        for (String value : headerSet) {
+            i++
+            if (fieldMapping[value] != null) {
                 logInfo("Replaced field ${value} with ${fieldMapping[value]}")
                 value = fieldMapping[value]
             }
 
-            Matcher matcher = pattern.matcher(value);
+            Matcher matcher = pattern.matcher(value)
             if (matcher.matches()) { // contact field
-                String role = matcher.group(1);
-                if (!contactLinkRoleSet.contains(role)){
+                String role = matcher.group(1)
+                if (!contactLinkRoleSet.contains(role)) {
                     logError("${getDiscriminator(ContactLink.class)}.${roleField} ${role} not in ${contactLinkRoleSet}");
                 }
                 String fieldName = matcher.group(2);
@@ -316,75 +315,75 @@ public class ExcelSynchronizer extends SyncSession {
                     logError("Field ${getDiscriminator(Contact.class)}.[${fieldName}] not found");
                     continue;
                 }
-                if (fieldName.equals(Contact.NAME)){
-                    if (role2ContactNameIndex.put(role, i) != null){
-                        logError("Multiple contactName for role ${role}");
+                if (fieldName.equals(Contact.NAME)) {
+                    if (role2ContactNameIndex.put(role, i) != null) {
+                        logError("Multiple contactName for role ${role}")
                     }
                 }
-                logInfo("Found contact field ${fieldName} for role ${role} index ${i}");
-                columnConfig.add(new ColumnInfo(i, role, config));
+                logInfo("Found contact field ${fieldName} for role ${role} index ${i}")
+                columnConfig.add(new ColumnInfo(i, role, config))
             } else { // simple field
-                String fieldName = value;
-                CustomFieldConfig config = getConfigByName(service,getDiscriminator(targetClass), fieldName);
-                if (config == null){
-                    if (fixedFields.contains(fieldName)){
-                        fixedFields.remove(fieldName);
+                String fieldName = value
+                CustomFieldConfig config = getConfigByName(service, getDiscriminator(targetClass), fieldName)
+                if (config == null) {
+                    if (fixedFields.contains(fieldName)) {
+                        fixedFields.remove(fieldName)
                     } else {
-                        logError("Field ${getDiscriminator(targetClass)}.[${fieldName}] not found");
+                        logError("Field ${getDiscriminator(targetClass)}.[${fieldName}] not found")
                         continue;
                     }
                 }
-                if (keyColumnName.equals(fieldName)){
-                    objectKeyColumnIndex = i;
+                if (keyColumnName.equals(fieldName)) {
+                    objectKeyColumnIndex = i
                     continue;
                 }
-                // TODO Handle situation when fields we have duplicates in source field names
-                if (config == null){
-                    columnConfig.add(new ColumnInfo(i, null, fieldName));
+                // TODO Handle situation when fields have duplicates in source field names
+                if (config == null) {
+                    columnConfig.add(new ColumnInfo(i, null, fieldName))
                 } else {
-                    columnConfig.add(new ColumnInfo(i, null, config));
+                    columnConfig.add(new ColumnInfo(i, null, config))
                 }
             }
         }
-        if (objectKeyColumnIndex == -1){
-            logError("Key field ${keyColumnName} not found in excel");
+        if (objectKeyColumnIndex == -1) {
+            logError("Key field ${keyColumnName} not found in excel")
         }
-        if (targetClass == DatabaseConnection.class){
-            if (fixedFields.contains("Connection Name")){
-                logError("Field \"Connection Name\" not found");
+        if (targetClass == DatabaseConnection.class) {
+            if (fixedFields.contains("Connection Name")) {
+                logError("Field \"Connection Name\" not found")
             }
-            if (fixedFields.contains("User")){
-                logError("Field \"User\" not found");
+            if (fixedFields.contains("User")) {
+                logError("Field \"User\" not found")
             }
-            if (fixedFields.contains("Password")){
-                logError("Field \"Password\" not found");
+            if (fixedFields.contains("Password")) {
+                logError("Field \"Password\" not found")
             }
-            if (fixedFields.contains("Connection URL")){
-                logError("Field \"Connection URL\" not found");
+            if (fixedFields.contains("Connection URL")) {
+                logError("Field \"Connection URL\" not found")
             }
-            if (fixedFields.contains("Driver")){
-                logError("Field \"Driver\" not found");
+            if (fixedFields.contains("Driver")) {
+                logError("Field \"Driver\" not found")
             }
         }
             
-        for (ColumnInfo ci:columnConfig){
-            if (ci.contactRole!=null){
-                ci.contactNameIndex = role2ContactNameIndex.get(ci.contactRole);
-                if (ci.contactNameIndex == -1){
-                    logError(getDiscriminator(Contact.class)+"."+Contact.NAME+" not set for role "+ci.contactRole);
+        for (ColumnInfo ci:columnConfig) {
+            if (ci.contactRole!=null) {
+                ci.contactNameIndex = role2ContactNameIndex.get(ci.contactRole)
+                if (ci.contactNameIndex == -1) {
+                    logError(getDiscriminator(Contact.class)+"."+Contact.NAME+" not set for role "+ci.contactRole)
                 }
             }
         }
     }
 
     private String autoIncrementName(String name) {
-        Pattern pattern = Pattern.compile("(.+) (\\d+)");
-        Matcher matcher = pattern.matcher(name);
-        if (matcher.matches()){
-            int i = Integer.valueOf(matcher.group(2))+1;
-            return matcher.group(1)+" ("+i+")";
+        Pattern pattern = Pattern.compile("(.+) (\\d+)")
+        Matcher matcher = pattern.matcher(name)
+        if (matcher.matches()) {
+            int i = Integer.valueOf(matcher.group(2)) + 1
+            return matcher.group(1) + " ("+i+")"
         } else {
-            return name+" (1)";
+            return name+" (1)"
         }
     }
 
@@ -510,12 +509,12 @@ public class ExcelSynchronizer extends SyncSession {
                     " at row ${row} and column ${column}");
             return;
         }
-        if (v==null && config.isRequired()){
+        if (v==null && config.isRequired()) {
             logError("Value is required for ${config.getName()} for field ${config.getClazz()}.${config.getName()} at ${row}:${column}");
             return;
         }
-        List<String> textValues = config.getTextValues();
-        if (v!=null && !textValues.isEmpty() && !textValues.contains(v)){
+        List<String> textValues = config.getTextValues()
+        if (v!=null && !textValues.isEmpty() && !textValues.contains(v)) {
             logError("Value '${value}' not in ${textValues} for field ${config.getClazz()}.${config.getName()} at ${row}:${column}");
             def key = config.getClazz()+"."+config.getName()
             def newValuesPerField = missingMetaValues[key]
@@ -561,40 +560,39 @@ public class ExcelSynchronizer extends SyncSession {
                     break
             }
             if (value!=null) {
-                value = value.toString().trim();
+                value = value.toString().trim()
                 if (value.isEmpty()) {
-                    return null;
+                    return null
                 } else {
-                    return value;
+                    return value
                 }
             } else {
-                return null;
+                return null
             }
-            // String value = cell.getStringCellValue();
         } else {
-            return null;
+            return null
         }
     }
 
     static class ColumnInfo {
-        String contactRole;
-        int contactNameIndex = -1;
+        String contactRole
+        int contactNameIndex = -1
 
-        int index;
-        CustomFieldConfig field;
+        int index
+        CustomFieldConfig field
         
-        String fixedFieldName;
+        String fixedFieldName
 
         public ColumnInfo(int index, String contactRole, CustomFieldConfig field) {
-            this.index = index;
-            this.contactRole = contactRole;
-            this.field = field;
+            this.index = index
+            this.contactRole = contactRole
+            this.field = field
         }
         
         public ColumnInfo(int index, String contactRole, String fixedFieldName) {
-            this.index = index;
-            this.contactRole = contactRole;
-            this.fixedFieldName = fixedFieldName;
+            this.index = index
+            this.contactRole = contactRole
+            this.fixedFieldName = fixedFieldName
         }
     }
 }
@@ -668,41 +666,39 @@ class InventoryComparer extends BeanComparer {
                     if (ci.fixedFieldName != null && objectType.equals("Connection")){
                         Object sv = null;
                         Object tv = null;
-                        if (ci.fixedFieldName == "Connection Name"){
-                             sv = sourceObject?.getName();
-                             tv = targetObject?.getName();
-                        } else if (ci.fixedFieldName == "User"){
-                            sv = sourceObject?.getUsername();
-                            tv = targetObject?.getUsername();
-                        } else if (ci.fixedFieldName == "Password"){
-                            sv = sourceObject?.getPassword();
-                            tv = targetObject?.getPassword();
-                        } else if (ci.fixedFieldName == "Connection URL"){
-                            sv = sourceObject?.getUrl();
-                            tv = targetObject?.getUrl();
-                        } else if (ci.fixedFieldName == "Driver"){
-                            sv = sourceObject?.getDriver();
-                            if (sv!=null && session.driverIds.containsKey(sv)){
-                                sv = session.driverIds.get(sv).getName();
+                        if (ci.fixedFieldName == "Connection Name") {
+                             sv = sourceObject?.getName()
+                             tv = targetObject?.getName()
+                        } else if (ci.fixedFieldName == "User") {
+                            sv = sourceObject?.getUsername()
+                            tv = targetObject?.getUsername()
+                        } else if (ci.fixedFieldName == "Password") {
+                            sv = sourceObject?.getPassword()
+                            tv = targetObject?.getPassword()
+                        } else if (ci.fixedFieldName == "Connection URL") {
+                            sv = sourceObject?.getUrl()
+                            tv = targetObject?.getUrl()
+                        } else if (ci.fixedFieldName == "Driver") {
+                            sv = sourceObject?.getDriver()
+                            if (sv!=null && session.driverIds.containsKey(sv)) {
+                                sv = session.driverIds.get(sv).getName()
                             }
-                            tv = targetObject?.getDriver();
-                            
-                            sourceObject?.getProperties()?.each{
+                            tv = targetObject?.getDriver()                            
+                            sourceObject?.getProperties()?.each {
                                 sourceAttrs[it.getKey()]=it.getValue()
                             }
                             targetObject?.getProperties()?.each{
                                 targetAttrs[it.getKey()]=it.getValue()
                             }
                         } else {
-                            return;
-                        }
-                        
+                            return
+                        }                        
                         sourceAttrs[ci.fixedFieldName]=sv
                         targetAttrs[ci.fixedFieldName]=tv
                         return;
                     }
                     
-                    if ("Last Change Date".equals(ci.field.name)){
+                    if ("Last Change Date".equals(ci.field.name)) {
                         // TODO add readonly / system field check ? 
                         return;
                     }
@@ -730,11 +726,15 @@ class InventoryComparer extends BeanComparer {
 }
 
 if (p_object_type.equals("Server")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, p_object_type, p_object_filter, p_source)
+    synchronizer = new ExcelSynchronizer(dbm, logger, Server.class, Server.SERVER_NAME, 
+                                         p_object_type, p_object_filter, p_source)
 } else if (p_object_type.equals("Application")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, p_object_type, p_object_filter, p_source)
+    synchronizer = new ExcelSynchronizer(dbm, logger, Application.class, Application.APPLICATION_NAME, 
+                                         p_object_type, p_object_filter, p_source)
 } else if (p_object_type.equals("Connection")) {
-    synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", p_object_type, p_object_filter, p_source)
+    synchronizer = new ExcelSynchronizer(dbm, logger, DatabaseConnection.class, "Connection Name", 
+                                         p_object_type, p_object_filter, p_source)
+
     synchronizer.fixedFields = ["Connection Name", "User", "Password", "Connection URL", "Driver"]
     synchronizer.connectionService.getDriverList().each { 
         it.getProperties().each {
