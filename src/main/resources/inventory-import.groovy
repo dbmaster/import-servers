@@ -242,7 +242,7 @@ public class ExcelSynchronizer extends SyncSession {
             Row header = sheet.getRow(0)
             Set<String> headerSet = new LinkedHashSet<String>()
             for (Cell cell : header) {
-                headerSet.add(cell.getStringCellValue()
+                headerSet.add(cell.getStringCellValue())
             }
             def mapping = parameters.p_field_mapping
             validateHeader(dbm.getService(ICustomFieldService.class), headerSet, mapping)
@@ -291,6 +291,7 @@ public class ExcelSynchronizer extends SyncSession {
         if (fieldMappingStr!=null) {
             fieldMappingStr.split("\n").each { pair ->
                 def key_value = pair.trim().split("=")
+                // TODO Fix index out of bounds
                 fieldMapping.put(key_value[0], key_value[1])
             }
         }
@@ -454,14 +455,14 @@ public class ExcelSynchronizer extends SyncSession {
         return processedObjects.collect{ key, value -> value }
     }
 
-    protected ContactLink findByRole(String role, List<ContactLink> contactLinks) {
-        for (ContactLink link:contactLinks) {
-            if (role.equals(link.getCustomData(roleField))) {
-                return link;
-            }
-        }
-        return null;
-    }
+    //protected ContactLink findByRole(String role, List<ContactLink> contactLinks) {
+    //    for (ContactLink link:contactLinks) {
+    //        if (role.equals(link.getCustomData(roleField))) {
+    //            return link;
+    //        }
+    //    }
+    //   return null;
+    //}
 
     protected void setupCustomField(CustomFieldConfig config, BaseCustomEntity entity, String value, int row, int column) {
         Object v;
