@@ -35,12 +35,11 @@ When importing connections, the plugin will try to recognize and map excel colum
 
 Standard connection fields are: 
 
-* Connection Name	- unique name for the connection. 
+* 'Connection Name'	- unique name for the connection. 
 * Driver - use driver name, e.g. 'SQL Server (jTDS)' for sql server
 * User	  - username for the connection, when empty integrated connection is used
 * Password - password for the connection, when empty integrated connection is used
-* Connection URL - java connection url should be used here. <br/> For jTDS driver use jdbc:jtds:sqlserver://&lt;server-name&gt;:1433;domain=&lt;domain-name&gt;;useKerberos=true/false
-* Enabled - indication if connection is enabled or not. use 'yes' / 'no' values.
+* 'Connection URL' - java connection url should be used here. <br/> For jTDS driver use jdbc:jtds:sqlserver://&lt;server-name&gt;:1433;domain=&lt;domain-name&gt;;useKerberos=true/false
 
 Driver parameters are defined in the data/drivers.ini file. 
 
