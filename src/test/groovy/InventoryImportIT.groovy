@@ -7,11 +7,21 @@ import org.testng.annotations.Test
 public class InventoryImportIT extends BaseToolTestNGCase {
 
     @Test
-    @Parameters("inventory-import.p_excel_file")
-    public void importConnections(String p_excel_file) {
-        def parameters = [ "p_excel_file"  :  p_excel_file,
+    public void testConnectionImport() {
+        def parameters = [ "p_excel_file"  :  "import-connections.xslx",
                            "p_object_type" : "Connection",
                            "p_action"      : "Preview" ]
         tools.toolExecutor("inventory-import", parameters).execute()
     }
+    
+    
+    @Test
+    public void testIgnoreImportColumns() {
+        def parameters = [ "p_excel_file"    : "import-connections.xslx",
+                           "p_object_type"   : "Connection",
+                           "p_field_mapping" : "InputColumn=",
+                           "p_action"        : "Preview" ]
+        tools.toolExecutor("inventory-import", parameters).execute()
+    }
+    
 }
