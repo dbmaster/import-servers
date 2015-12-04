@@ -28,6 +28,7 @@ public class InventoryImportIT extends BaseToolTestNGCase {
                            "p_action"        : "Preview" ]
         tools.toolExecutor("inventory-import", parameters).execute()
     }
+    
 */    
 
     @Test
@@ -37,15 +38,15 @@ public class InventoryImportIT extends BaseToolTestNGCase {
         def filename = "applications.xlsx"
         try {
             file = fileService.getFile(filename)
-            println "File ${p_filename} already exists. Replacing content"
+            // println "File ${p_filename} already exists. Replacing content"
         } catch (EntityNotFoundApiException e) {
             // this means file does not exists
             file = fileService.createFile(filename, "inventory-import-test")
         }
         def outputStream = file.getOutputStream()
-        def in = new FileInputStream( new java.io.File(getTestResourcesDir(), filename) )
-        IOUtils.copy(in, outputStream)
-        in.close()
+        def input = new java.io.FileInputStream( new java.io.File(getTestResourcesDir(), filename) )
+        IOUtils.copy(input, outputStream)
+        input.close()
         outputStream.close()
 
         def parameters = [ "p_excel_file"    : filename,
