@@ -12,13 +12,14 @@ public class InventoryImportIT extends BaseToolTestNGCase {
 
     @Test
     public void testConnectionImport() {
+        // TODO implement file import (from testImportApps) and use import-connections-test.xls
         def parameters = [ "p_excel_file"  :  "import-connections.xslx",
                            "p_object_type" : "Connection",
                            "p_action"      : "Preview" ]
         tools.toolExecutor("inventory-import", parameters).execute()
     }
     
-
+/*
     // https://github.com/dbmaster/inventory-import/issues/9
     @Test
     public void testIgnoreImportColumns() {
@@ -28,7 +29,8 @@ public class InventoryImportIT extends BaseToolTestNGCase {
                            "p_action"        : "Preview" ]
         tools.toolExecutor("inventory-import", parameters).execute()
     }
-    
+*/
+
     @Test
     public void testImportApplications() {
         def fileService = getInjector().getInstance(FileService.class)
