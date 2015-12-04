@@ -33,7 +33,7 @@ public class InventoryImportIT extends BaseToolTestNGCase {
 
     @Test
     public void testImportApplications() {
-        def fileService = getInjector().getService(FileService.class)
+        def fileService = getInjector().getInstance(FileService.class)
         FileReference file = null
         def filename = "applications.xlsx"
         try {
