@@ -6,9 +6,9 @@
    <artifactId>inventory-import</artifactId>
 
    <name>Inventory Import</name>
-   <description>Imports data (applications,servers) from excel into inventory</description>
+   <description>Imports data from excel file into inventory</description>
 
-   <version>0.0.17</version>
+   <version>0.1.0</version>
    <packaging>bundle</packaging>
 
    <dependencies>
