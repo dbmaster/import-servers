@@ -39,7 +39,7 @@ public class InventoryImportIT extends BaseToolTestNGCase {
         try {
             file = fileService.getFile(filename)
             // println "File ${p_filename} already exists. Replacing content"
-        } catch (EntityNotFoundApiException e) {
+        } catch (Exception e) {
             // this means file does not exists
             file = fileService.createFile(filename, "inventory-import-test")
         }
