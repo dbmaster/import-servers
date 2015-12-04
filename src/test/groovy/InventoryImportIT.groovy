@@ -17,8 +17,8 @@ public class InventoryImportIT extends BaseToolTestNGCase {
                            "p_action"      : "Preview" ]
         tools.toolExecutor("inventory-import", parameters).execute()
     }
-/*    
     
+
     // https://github.com/dbmaster/inventory-import/issues/9
     @Test
     public void testIgnoreImportColumns() {
@@ -29,8 +29,6 @@ public class InventoryImportIT extends BaseToolTestNGCase {
         tools.toolExecutor("inventory-import", parameters).execute()
     }
     
-*/    
-
     @Test
     public void testImportApplications() {
         def fileService = getInjector().getInstance(FileService.class)
