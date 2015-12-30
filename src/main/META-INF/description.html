@@ -1,0 +1,106 @@
+<p>Inventory-import plugin synchronizes objects from excel file with project data.</p>
+
+<p>Current implementation supports import of Applications, Servers, and Connections.</p>
+
+<h2>
+<a id="user-content-parameters" class="anchor" href="#parameters" aria-hidden="true"><span class="octicon octicon-link"></span></a>Parameters</h2>
+
+<table>
+<thead>
+<tr>
+<th>Parameter name</th>
+<th align="center">Type</th>
+<th align="center">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File to Import (Excel)</td>
+<td align="center">File</td>
+<td align="center">Yes</td>
+<td>Data will be imported from this file. See format and sample below</td>
+</tr>
+<tr>
+<td>Object Type</td>
+<td align="center">List</td>
+<td align="center">Yes</td>
+<td>Type of object to be imported. Possible values are Server, Application, and Connection.</td>
+</tr>
+<tr>
+<td>Inventory Object Filter</td>
+<td align="center">String</td>
+<td align="center">No</td>
+<td>Filter for the objects in the repository in <a href="https://www.dbmaster.io/documentation/quick-search">dbmaster search format</a>. This parameter is useful when importing from more than one source or when some objects are manually entered and some come from external data.</td>
+</tr>
+<tr>
+<td>Data Source</td>
+<td align="center">String</td>
+<td align="center">No</td>
+<td>When non-empty, custom field "Source" will be set to this value</td>
+</tr>
+<tr>
+<td>Action</td>
+<td align="center">List</td>
+<td align="center">Yes</td>
+<td>Allows previewing changes to be made before importing objects.  Possible values: <ul>
+<li>Preview - output of the plugin will contain changes to be made to the data without any changes made</li>
+<li>Import - data will be imported if it does not have any errors</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td>Field Mapping</td>
+<td align="center">Text</td>
+<td align="center">No</td>
+<td>Specifies mapping between columns in the source file and inventory fields. Mappings should be defined one line in format &lt;<em>excel-column</em>&gt;=&lt;<em>custom-field</em>&gt;. A column will be ignored when <em>custom-field</em> is empty. If there is no mapping for a column, it will be imported under the same name.</td>
+</tr>
+</tbody>
+</table>
+
+<h2>
+<a id="user-content-import-file-format" class="anchor" href="#import-file-format" aria-hidden="true"><span class="octicon octicon-link"></span></a>Import File Format</h2>
+
+<p>The plugin imports data from the first sheet of excel file, others are simply ignored.
+First row must have column names. </p>
+
+<p>For <strong>date fields</strong> the plugin recognizes these formats </p>
+
+<ul>
+<li>MMM d, yyyy</li>
+<li>MMM d,yyyy h:mm a</li>
+<li>MMM d,yyyy h:mm:ss</li>
+<li>EEE MMM d, yyyy h:mm a</li>
+<li>EEE MMM d h:mm:ss z yyyy</li>
+</ul>
+
+<p>For details and examples see <a href="http://docs.oracle.com/javase/7/docs/api/java/text/SimpleDateFormat.html">original documentation</a></p>
+
+<h2>
+<a id="user-content-importing-connections" class="anchor" href="#importing-connections" aria-hidden="true"><span class="octicon octicon-link"></span></a>Importing connections</h2>
+
+<p>Connections in DBMaster have three sets of attributes: standard fields, driver parameters, and custom properties.
+When importing connections, the plugin will try to recognize and map excel columns with connection attributes in the same order.</p>
+
+<p>Standard connection fields are: </p>
+
+<ul>
+<li>'Connection Name' - unique name for the connection. </li>
+<li>Driver - use driver name, e.g. 'SQL Server (jTDS)' for sql server</li>
+<li>User    - username for the connection, when empty integrated connection is used</li>
+<li>Password - password for the connection, when empty integrated connection is used</li>
+<li>'Connection URL' - java connection url should be used here. <br> For jTDS driver use jdbc:jtds:sqlserver://&lt;server-name&gt;:1433;domain=&lt;domain-name&gt;;useKerberos=true/false</li>
+</ul>
+
+<p>Driver parameters are defined in the data/drivers.ini file. </p>
+
+
+
+<h2>
+<a id="user-content-import-file-samples" class="anchor" href="#import-file-samples" aria-hidden="true"><span class="octicon octicon-link"></span></a>Import File Samples</h2>
+
+<ul>
+<li>Application import sample</li>
+<li>Server import sample</li>
+<li>Connection import sample</li>
+</ul>
