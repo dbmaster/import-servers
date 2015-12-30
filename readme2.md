@@ -16,7 +16,7 @@ description and detailed info on the [main plugin's page](https://www.dbmaster.i
 
 ## Need Help?
 
-Need help? Try asking a question on plugins [discussion forum](https://www.dbmaster.io/plugins/model-export/comments).
+Need help? Try asking a question on plugins [discussion forum](https://www.dbmaster.io/plugins/inventory-import/comments).
 
 <!---
 
