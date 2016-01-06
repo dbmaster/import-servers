@@ -2,8 +2,21 @@
     <tool id="inventory-import" title="Inventory Import" projectTypes="inventory">
         <description>Imports objects from excel</description>
 
+	<help><![CDATA[
+                <p>Visit <a href="https://www.dbmaster.io/plugins/inventory-import" target="plugin">plugin page</a> to get description for the parameters.</p>
+
+                <p>Get the latest templates for importing 
+		   <a href="https://github.com/dbmaster/inventory-import/raw/master/samples/applications.xlsx">applications</a>,
+		   <a href="https://github.com/dbmaster/inventory-import/raw/master/samples/connections.xlsx">connections</a>, and
+		   <a href="https://github.com/dbmaster/inventory-import/raw/master/samples/servers.xlsx">servers</a>
+                 
+                   at github. </p>
+
+                <p>After import is completed it is necessary to reload page in the browser.</p>
+        ]]></help>
+
         <parameters>
-            <parameter name="p_excel_file"     title="File to Import (Excel)" type="file_ref" required="true" width="500" />
+            <parameter name="p_excel_file"     title="File to Import (Excel)" type="file_ref" required="true" width="450" />
             <parameter name="p_object_type"    title="Object Type"  type="string" required="true">
                 <values>
                     <string>Server</string>

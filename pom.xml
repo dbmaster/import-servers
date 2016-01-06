@@ -8,7 +8,7 @@
    <name>Inventory Import</name>
    <description>Imports data from excel file into inventory</description>
 
-   <version>0.1.3</version>
+   <version>0.1.4</version>
    <packaging>bundle</packaging>
 
    <dependencies>
