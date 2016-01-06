@@ -4,7 +4,7 @@ Current implementation supports import of Applications, Servers, and Connections
 
 ## Parameters
 
-| Parameter name         | Type   | Required | Description                                |
+| Parameter              | Type   | Required | Description                                |
 |------------------------|:------:|:--------:|--------------------------------------------|
 | File to Import (Excel) | File   | Yes      | Data will be imported from this file. See format and sample below
 | Object Type            | List   | Yes      | Type of object to be imported. Possible values are Server, Application, and Connection. |
