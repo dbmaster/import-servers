@@ -53,6 +53,6 @@ For each role at least one field-name should be specified:
 
 ## Import File Samples
 
-* Application import sample
-* Server import sample
-* Connection import sample
+* [Application import sample](https://github.com/dbmaster/inventory-import/raw/master/samples/applications.xlsx)
+* [Server import sample](https://github.com/dbmaster/inventory-import/raw/master/samples/servers.xlsx)
+* [Connection import sample](https://github.com/dbmaster/inventory-import/raw/master/samples/connections.xlsx)
