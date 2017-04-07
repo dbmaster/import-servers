@@ -75,7 +75,8 @@ public class ExcelSynchronizer extends SyncSession {
 
     def missingMetaValues = [:]
 
-    List dateParsers = [ new SimpleDateFormat("MMM d, yyyy"),
+    List dateParsers = [ new SimpleDateFormat("MM/dd/yyyy hh:mm:ss"),
+                         new SimpleDateFormat("MMM d, yyyy"),
                          new SimpleDateFormat("MMM d,yyyy h:mm a"),
                          new SimpleDateFormat("MMM d,yyyy h:mm:ss"),
                          new SimpleDateFormat("EEE MMM d, yyyy h:mm a"),
@@ -290,16 +291,23 @@ public class ExcelSynchronizer extends SyncSession {
         def fieldMapping = [:]
         if (fieldMappingStr!=null) {
             fieldMappingStr.split("\n").each { pair ->
-                def key_value = pair.trim().split("=")
-                // TODO Fix index out of bounds
-                fieldMapping.put(key_value[0], key_value[1])
+                String[] key_value = pair.trim().split("=")
+                if (key_value.length == 1 || key_value[1] == "<ignore>") {
+                    fieldMapping.put(key_value[0], null)
+                } else {
+                    fieldMapping.put(key_value[0], key_value[1])
+                }
             }
         }
         logInfo("Field Mappings=" + fieldMapping)
 
         for (String value : headerSet) {
             i++
-            if (fieldMapping[value] != null) {
+            if (fieldMapping.containsKey(value)) {
+                if (fieldMapping[value] == null) {
+                    logInfo("Ignore field ${value}")
+                    continue;
+                }
                 logInfo("Replaced field ${value} with ${fieldMapping[value]}")
                 value = fieldMapping[value]
             }
