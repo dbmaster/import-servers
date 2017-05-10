@@ -90,6 +90,7 @@ public class ExcelSynchronizer extends SyncSession {
 
     private void logInfo(String info) {  logger.info(info); }
     private void logWarn(String warn) {  logger.warn(warn); }
+    private void logDebug(String debug) {  logger.debug(debug); }
 
     public static enum MissingObject { CREATE, IGNORE }
 
@@ -289,26 +290,44 @@ public class ExcelSynchronizer extends SyncSession {
         int i = -1
 
         def fieldMapping = [:]
+        def valuesMapping = [:]
         if (fieldMappingStr!=null) {
+            // key = value
+            Pattern keyMapping = Pattern.compile("^\\s*(?<key>[^=]+)\\s*=\\s*(?<value>.+?)\\s*\$");
+            // key : from => to
+            Pattern keyValueMapping = Pattern.compile("^\\s*(?<key>.+?)\\s*:\\s*(?<from>.+?)\\s*=>\\s*(?<to>.+?)\\s*\$");
+            
+            Matcher matcher;
             fieldMappingStr.split("\n").each { pair ->
-                String[] key_value = pair.trim().split("=")
-                if (key_value.length == 1 || key_value[1] == "<ignore>") {
-                    fieldMapping.put(key_value[0], null)
+                matcher = keyValueMapping.matcher(pair);
+                if (matcher.matches()) {
+                    Map<String,String> kv = valuesMapping[matcher.group("key")];
+                    if (kv == null) {
+                        kv = valuesMapping[matcher.group("key")] = [:]
+                    }
+                    kv[matcher.group("from")]= matcher.group("to");
                 } else {
-                    fieldMapping.put(key_value[0], key_value[1])
+                    matcher = keyMapping.matcher(pair);
+                    if (matcher.matches() && "<ignore>" != matcher.group("value")) {
+                        fieldMapping.put(matcher.group("key"), matcher.group("value"))
+                    } else {
+                        fieldMapping.put(matcher.group("key"), null)
+                    }
                 }
             }
         }
         logInfo("Field Mappings=" + fieldMapping)
+        logInfo("Value Mappings=" + valuesMapping)
 
         for (String value : headerSet) {
+            String originalValue = value;
             i++
             if (fieldMapping.containsKey(value)) {
                 if (fieldMapping[value] == null) {
                     logInfo("Ignore field ${value}")
                     continue;
                 }
-                logInfo("Replaced field ${value} with ${fieldMapping[value]}")
+                logInfo("Read field ${value} as ${fieldMapping[value]}")
                 value = fieldMapping[value]
             }
 
@@ -330,7 +349,8 @@ public class ExcelSynchronizer extends SyncSession {
                     }
                 }
                 logInfo("Found contact field ${fieldName} for role ${role} index ${i}")
-                columnConfig.add(new ColumnInfo(i, role, config))
+                logInfoValuesMapping(valuesMapping, originalValue)
+                columnConfig.add(new ColumnInfo(i, role, config, valuesMapping[originalValue]))
             } else { // simple field
                 String fieldName = value
                 CustomFieldConfig config = getConfigByName(service, getDiscriminator(targetClass), fieldName)
@@ -346,14 +366,20 @@ public class ExcelSynchronizer extends SyncSession {
                     objectKeyColumnIndex = i
                     continue;
                 }
+                logInfoValuesMapping(valuesMapping, originalValue)
                 // TODO Handle situation when fields have duplicates in source field names
                 if (config == null) {
-                    columnConfig.add(new ColumnInfo(i, null, fieldName))
+                    columnConfig.add(new ColumnInfo(i, null, fieldName, valuesMapping[originalValue]))
                 } else {
-                    columnConfig.add(new ColumnInfo(i, null, config))
+                    columnConfig.add(new ColumnInfo(i, null, config, valuesMapping[originalValue]))
                 }
             }
+            valuesMapping.remove(originalValue)
         }
+        if (!valuesMapping.isEmpty()) {
+            logWarn("Unknown value mappings=" + valuesMapping)
+        }
+        
         if (objectKeyColumnIndex == -1) {
             logError("Key field ${keyColumnName} not found in excel")
         }
@@ -382,6 +408,12 @@ public class ExcelSynchronizer extends SyncSession {
                     logError(getDiscriminator(Contact.class)+"."+Contact.NAME+" not set for role "+ci.contactRole)
                 }
             }
+        }
+    }
+    
+    private void logInfoValuesMapping(Map<String,Map<String,String>> valuesMapping, String fieldName) {
+        if (valuesMapping.containsKey(fieldName)) {
+            logInfo("Mapping values: "+valuesMapping[fieldName].collect{k,v -> "$k &rArr; $v"}.join('<br/> '))
         }
     }
 
@@ -428,6 +460,10 @@ public class ExcelSynchronizer extends SyncSession {
             for (ColumnInfo info : columnConfig) {
                 // logInfo("Info role "+ info.contactRole+" "+info.contactNameIndex);
                 String value = getStringValue(row, info.index);
+                if (info.valuesMapping.containsKey(value)){\
+                    logDebug("Replace ${value} &rArr; ${info.valuesMapping[value]}");
+                    value = info.valuesMapping[value];
+                }
                 if (info.contactRole!=null) {
                     // skip for now
                 } else if (info.fixedFieldName != null){
@@ -591,17 +627,20 @@ public class ExcelSynchronizer extends SyncSession {
         CustomFieldConfig field
         
         String fixedFieldName
+        Map<String,String> valuesMapping;
 
-        public ColumnInfo(int index, String contactRole, CustomFieldConfig field) {
+        public ColumnInfo(int index, String contactRole, CustomFieldConfig field, Map<String,String> valuesMapping) {
             this.index = index
             this.contactRole = contactRole
             this.field = field
+            this.valuesMapping = valuesMapping == null ? [:] : valuesMapping;
         }
         
-        public ColumnInfo(int index, String contactRole, String fixedFieldName) {
+        public ColumnInfo(int index, String contactRole, String fixedFieldName, Map<String,String> valuesMapping) {
             this.index = index
             this.contactRole = contactRole
             this.fixedFieldName = fixedFieldName
+            this.valuesMapping = valuesMapping == null ? [:] : valuesMapping;
         }
     }
 }
