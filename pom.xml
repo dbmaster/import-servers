@@ -8,7 +8,7 @@
    <name>Inventory Import</name>
    <description>Imports data from excel file into inventory</description>
 
-   <version>0.1.4</version>
+   <version>0.1.8</version>
    <packaging>bundle</packaging>
 
    <dependencies>
@@ -21,9 +21,9 @@
    </dependencies>
 
    <parent>
-      <groupId>io.dbmaster.tools</groupId>
-      <artifactId>dbmaster-root</artifactId>
-      <version>1.10</version>
+       <groupId>io.dbmaster.plugins</groupId>
+       <artifactId>dbmaster-plugin-parent</artifactId>
+       <version>1.12.1</version>
    </parent>
 
    <build>

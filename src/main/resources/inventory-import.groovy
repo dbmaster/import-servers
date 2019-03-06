@@ -32,7 +32,7 @@ import org.apache.poi.ss.usermodel.DateUtil
 import org.apache.poi.util.FixedField
 import org.slf4j.Logger
 
-import com.branegy.dbmaster.connection.ConnectorInfo
+import com.branegy.dbmaster.connection.DriverInfo
 import com.branegy.dbmaster.custom.CustomFieldConfig
 import com.branegy.dbmaster.custom.CustomFieldConfig.Type
 import com.branegy.dbmaster.custom.field.server.api.ICustomFieldService
@@ -98,8 +98,8 @@ public class ExcelSynchronizer extends SyncSession {
     Class targetClass;
     String keyColumnName;
     
-    Map<String,ConnectorInfo> driverNames = null;
-    Map<String,ConnectorInfo> driverIds = null;
+    Map<String,DriverInfo> driverNames = null;
+    Map<String,DriverInfo> driverIds = null;
     Map<String,Set<String>> propertySuperSet = null;
     
     String dataSource
