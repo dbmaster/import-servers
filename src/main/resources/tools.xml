@@ -17,13 +17,7 @@
 
         <parameters>
             <parameter name="p_excel_file"     title="File to Import (Excel)" type="file_ref" required="true" width="450" />
-            <parameter name="p_object_type"    title="Object Type"  type="string" required="true">
-                <values>
-                    <string>Server</string>
-                    <string>Application</string>
-                    <string>Connection</string>
-                </values>
-            </parameter>
+            <parameter name="p_object_type"    title="Object Type"  type="string" required="true" suggestion="excel_inventory_import" />
 
             <parameter name="p_object_filter"  title="Inventory Object Filter" type="string" required="false" />
             <parameter name="p_source"         title="Data Source" type="string" required="false" />

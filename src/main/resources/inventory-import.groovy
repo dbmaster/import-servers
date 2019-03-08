@@ -33,9 +33,11 @@ import org.apache.poi.util.FixedField
 import org.slf4j.Logger
 
 import com.branegy.dbmaster.connection.DriverInfo
+import com.branegy.dbmaster.custom.CustomObjectEntity
 import com.branegy.dbmaster.custom.CustomFieldConfig
 import com.branegy.dbmaster.custom.CustomFieldConfig.Type
 import com.branegy.dbmaster.custom.field.server.api.ICustomFieldService
+import com.branegy.dbmaster.custom.CustomObjectService
 import com.branegy.inventory.api.InventoryService
 import com.branegy.inventory.model.*
 import com.branegy.persistence.custom.BaseCustomEntity
@@ -48,11 +50,14 @@ import com.branegy.dbmaster.sync.impl.BeanComparer
 import com.branegy.dbmaster.sync.api.SyncPair.ChangeType
 import com.branegy.dbmaster.sync.api.SyncAttributePair.AttributeChangeType
 import com.branegy.service.connection.api.ConnectionService
+import com.branegy.dbmaster.custom.CustomObjectService
 import com.branegy.service.connection.model.DatabaseConnection
 import com.branegy.service.connection.model.DatabaseConnection.PropertyInfo
 import com.branegy.service.core.QueryRequest
 import com.branegy.dbmaster.sync.api.SyncSession.SearchTarget
 import com.branegy.cfg.IPropertySupplier
+
+String customObjectKeyName;
 
 //CHECKSTYLE:OFF
 public class ExcelSynchronizer extends SyncSession {
@@ -71,8 +76,10 @@ public class ExcelSynchronizer extends SyncSession {
     DbMaster dbm
     InventoryService inventoryService
     ConnectionService connectionService
+    CustomObjectService customObjectService
     Sheet sheet;
-
+    
+    String customObjectDiscriminator
     def missingMetaValues = [:]
 
     List dateParsers = [ new SimpleDateFormat("MM/dd/yyyy hh:mm:ss"),
@@ -122,6 +129,7 @@ public class ExcelSynchronizer extends SyncSession {
         this.keyColumnName = keyColumnName
         inventoryService = dbm.getService(InventoryService.class)
         connectionService = dbm.getService(ConnectionService.class)
+        customObjectService = dbm.getService(CustomObjectService.class)
         if (targetClass == DatabaseConnection.class){
             driverNames = [:];
             driverIds = [:];
@@ -142,7 +150,7 @@ public class ExcelSynchronizer extends SyncSession {
         String objectType = pair.getObjectType();
         if (objectType.equals("Inventory")) {
             pair.getChildren().each { importChanges(it) }
-        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection")) {
+        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection") || objectType.equals("CustomObjectEntity")) {
             BaseCustomEntity sourceObj = (BaseCustomEntity)pair.getSource()
             BaseCustomEntity targetObj = (BaseCustomEntity)pair.getTarget()
 
@@ -164,6 +172,9 @@ public class ExcelSynchronizer extends SyncSession {
                             }
                         }
                         connectionService.createConnection(targetObj)
+                    } else if (objectType.equals("CustomObjectEntity")) {
+                        //targetObj.discriminator = customObjectDiscriminator;
+                        customObjectService.createCustomObject(targetObj);
                     }
                     break;
                 case ChangeType.CHANGED:
@@ -198,6 +209,13 @@ public class ExcelSynchronizer extends SyncSession {
                         }
                     
                         connectionService.updateConnection(sourceObj)
+                    } else if (objectType.equals("CustomObjectEntity")) {
+                        for (SyncAttributePair attr : pair.getAttributes()) {
+                            if (attr.getChangeType() != AttributeChangeType.EQUALS) {
+                                sourceObj.setCustomData( attr.getAttributeName(), attr.getTargetValue())
+                            }
+                        }
+                        customObjectService.updateCustomObject(targetObj)
                     }
                     break;
                 case ChangeType.DELETED:
@@ -207,6 +225,8 @@ public class ExcelSynchronizer extends SyncSession {
                         inventoryService.deleteApplication(sourceObj.getId())
                     } else if (objectType.equals("Connection")) {
                         connectionService.deleteConnection(sourceObj);
+                    } else if (objectType.equals("CustomObjectEntity")) {
+                        customObjectService.deleteCustomObject(targetObj)
                     }
                     break;
                 case ChangeType.COPIED:
@@ -353,12 +373,14 @@ public class ExcelSynchronizer extends SyncSession {
                 columnConfig.add(new ColumnInfo(i, role, config, valuesMapping[originalValue]))
             } else { // simple field
                 String fieldName = value
-                CustomFieldConfig config = getConfigByName(service, getDiscriminator(targetClass), fieldName)
+                String discriminator = targetClass == CustomObjectEntity.class?customObjectDiscriminator:getDiscriminator(targetClass);
+                
+                CustomFieldConfig config = getConfigByName(service, discriminator, fieldName)
                 if (config == null) {
                     if (fixedFields.contains(fieldName)) {
                         fixedFields.remove(fieldName)
                     } else {
-                        logError("Field ${getDiscriminator(targetClass)}.[${fieldName}] not found")
+                        logError("Field ${discriminator}.[${fieldName}] not found")
                         continue;
                     }
                 }
@@ -449,6 +471,10 @@ public class ExcelSynchronizer extends SyncSession {
             }
             objectToImport = targetClass.newInstance();
             if (targetClass != DatabaseConnection.class){
+                if (targetClass == CustomObjectEntity.class) {
+                    objectToImport.discriminator = customObjectDiscriminator
+                }
+                
                 objectToImport.setCustomData(keyColumnName, objectName);
             } else {
                 objectToImport.setName(objectName);
@@ -646,12 +672,15 @@ public class ExcelSynchronizer extends SyncSession {
 }
 
 class InventoryNamer implements Namer {
+    def customObjectKeyName;
+    
         @Override
         public String getName(Object o) {
             if (o instanceof RootObject) {                 return "Inventory";
             } else if (o instanceof Server) {              return ((Server)o).getServerName();
             } else if (o instanceof Application) {         return ((Application)o).getApplicationName();
             } else if (o instanceof DatabaseConnection) {  return ((DatabaseConnection)o).getName();
+            } else if (o instanceof CustomObjectEntity) {  return o.getCustomData(customObjectKeyName);
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -663,6 +692,7 @@ class InventoryNamer implements Namer {
             } else if (o instanceof Server) {              return "Server";
             } else if (o instanceof Application) {         return "Application";
             } else if (o instanceof DatabaseConnection) {  return "Connection";
+            } else if (o instanceof CustomObjectEntity) {  return "CustomObjectEntity";
             } else {
                 throw new IllegalArgumentException("Unexpected object class "+o);
             }
@@ -692,6 +722,8 @@ class InventoryComparer extends BeanComparer {
                 inventoryObjects= session.inventoryService.getApplicationList(request)
             } else if (session.targetClass == DatabaseConnection.class) {
                 inventoryObjects= session.connectionService.getConnectionSlice(request,null); // TODO do refactoring
+            } else if (session.targetClass == CustomObjectEntity.class) {
+                inventoryObjects= session.customObjectService.getCustomObjectSlice(session.customObjectDiscriminator,request);
             }
             def importedObjects = session.getExcelObjects()
 
@@ -701,7 +733,7 @@ class InventoryComparer extends BeanComparer {
             session.logInfo("Total pairs ${childs.size()}")
 
             pair.getChildren().addAll(childs);
-        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection")) {
+        } else if (objectType.equals("Server") || objectType.equals("Application") || objectType.equals("Connection") || objectType.equals("CustomObjectEntity")) {
             BaseCustomEntity sourceObject = (BaseCustomEntity)pair.getSource()
             BaseCustomEntity targetObject = (BaseCustomEntity)pair.getTarget()
 
@@ -790,8 +822,19 @@ if (p_object_type.equals("Server")) {
         }
     }
 } else {
-    println "Unexpected object type ${p_object_type}. Only Server, Application, and Connection are supported"
-    return
+    CustomObjectService customObjectService = dbm.getService(CustomObjectService.class);
+    
+    List<CustomFieldConfig> keys = customObjectService.findKeyFieldFor(p_object_type);
+    if (keys.isEmpty()) {
+        throw new IllegalArgumentException("Key is not specified");
+    } else if (keys.size()>1) {
+        throw new IllegalArgumentException("Multiple key is not supported");
+    }
+    customObjectKeyName = keys[0].getName();
+    synchronizer = new ExcelSynchronizer(dbm, logger, CustomObjectEntity.class, customObjectKeyName,
+        "CustomObjectEntity", p_object_filter, p_source)
+    synchronizer.customObjectDiscriminator = p_object_type
+    synchronizer.getNamer().customObjectKeyName = customObjectKeyName;
 }
 
 if (synchronizer.loadAndValidateExcel(parameters)) {
