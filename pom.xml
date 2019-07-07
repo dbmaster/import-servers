@@ -35,6 +35,7 @@
                <instructions>
                   <Tags>inventory</Tags>
                   <Author>slava.christin</Author>
+                  <Import-Package>io.dbmaster.api;version="[1.12,2.1)",!*</Import-Package>
                </instructions>
             </configuration>
          </plugin>
